@@ -27,6 +27,8 @@ type Lexer struct {
 	nextState       LexState // State for next Lex() call
 	sqlMode         SQLMode  // SQL mode flags
 	stmtPrepareMode bool     // Whether we're in prepared statement mode
+	inHintComment   bool     // Whether we're parsing inside a hint comment /*+ ... */
+	lastToken       int      // Last token returned (for hint detection)
 }
 
 // NewLexer creates a new lexer for the given input.
@@ -151,6 +153,49 @@ func (l *Lexer) findKeyword(length int, isFunction bool) int {
 		return tok
 	}
 	return 0
+}
+
+// returnToken wraps token return to track lastToken for hint detection
+func (l *Lexer) returnToken(t Token) Token {
+	l.lastToken = t.Type
+	return t
+}
+
+// isHintableKeyword returns true if the token is a keyword that can be followed
+// by optimizer hints /*+ ... */
+func (l *Lexer) isHintableKeyword(tok int) bool {
+	switch tok {
+	case SELECT_SYM, INSERT_SYM, UPDATE_SYM, DELETE_SYM, REPLACE_SYM:
+		return true
+	}
+	return false
+}
+
+// scanDollarQuotedString scans a dollar-quoted string.
+// The opening delimiter (either $$ or $tag$) has already been consumed.
+// For anonymous: tag is empty, we look for $$
+// For tagged: we look for $tag$
+// Returns DOLLAR_QUOTED_STRING_SYM on success, ABORT_SYM on unterminated.
+func (l *Lexer) scanDollarQuotedString(tag string) Token {
+	// Build the closing delimiter
+	closingDelim := "$" + tag + "$"
+	closingLen := len(closingDelim)
+
+	// Scan until we find the closing delimiter
+	for !l.eof() {
+		// Check if current position starts with closing delimiter
+		if l.pos+closingLen <= len(l.input) {
+			if l.input[l.pos:l.pos+closingLen] == closingDelim {
+				// Found closing delimiter
+				l.pos += closingLen
+				return l.returnToken(Token{Type: DOLLAR_QUOTED_STRING_SYM, Start: l.tokStart, End: l.pos})
+			}
+		}
+		l.pos++
+	}
+
+	// Unterminated dollar-quoted string
+	return l.returnToken(Token{Type: ABORT_SYM, Start: l.tokStart, End: l.pos})
 }
 
 // toUpper converts a string to uppercase (ASCII only)
@@ -278,9 +323,80 @@ func (l *Lexer) consumeComment() bool {
 	return false // Unclosed comment
 }
 
+// lexHintToken tokenizes inside an optimizer hint comment /*+ ... */
+// Returns hint keywords, identifiers, numbers, operators, and TOK_HINT_COMMENT_CLOSE
+func (l *Lexer) lexHintToken() Token {
+	l.startToken()
+
+	// Skip whitespace
+	for {
+		c := l.yyPeek()
+		if c == ' ' || c == '\t' || c == '\n' || c == '\r' {
+			l.yySkip()
+		} else {
+			break
+		}
+	}
+	l.restartToken()
+
+	// Check for end of hint comment */
+	if l.yyPeek() == '*' && l.yyPeekn(1) == '/' {
+		l.yySkip() // *
+		l.yySkip() // /
+		l.inHintComment = false
+		return l.returnToken(Token{Type: TOK_HINT_COMMENT_CLOSE, Start: l.tokStart, End: l.pos})
+	}
+
+	// Check for EOF (unclosed hint)
+	if l.eof() {
+		l.inHintComment = false
+		return l.returnToken(Token{Type: ABORT_SYM, Start: l.tokStart, End: l.pos})
+	}
+
+	c := l.yyGet()
+
+	// Identifier or hint keyword
+	if isIdentStart(c) {
+		for isIdentChar(l.yyPeek()) {
+			l.yySkip()
+		}
+		length := l.yyLength()
+		// Check if it's a hint keyword
+		text := l.input[l.tokStart : l.tokStart+length]
+		upper := toUpper(text)
+		if tok, ok := HintKeywords[upper]; ok {
+			return l.returnToken(Token{Type: tok, Start: l.tokStart, End: l.pos})
+		}
+		// Return as IDENT
+		return l.returnToken(Token{Type: IDENT, Start: l.tokStart, End: l.pos})
+	}
+
+	// Number
+	if isDigit(c) {
+		for isDigit(l.yyPeek()) {
+			l.yySkip()
+		}
+		return l.returnToken(Token{Type: NUM, Start: l.tokStart, End: l.pos})
+	}
+
+	// Single-char tokens (parens, comma, etc.)
+	// Return as their ASCII value
+	return l.returnToken(Token{Type: int(c), Start: l.tokStart, End: l.pos})
+}
+
+// isIdentStart returns true if the character can start an identifier
+func isIdentStart(c byte) bool {
+	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_'
+}
+
 // Lex returns the next token from the input.
 // This is a stub that will be implemented state by state.
 func (l *Lexer) Lex() Token {
+	// Handle hint mode - parse optimizer hint content
+	if l.inHintComment {
+		return l.lexHintToken()
+	}
+
 	l.startToken()
 	state := l.nextState
 	l.nextState = MY_LEX_START
@@ -446,7 +562,44 @@ func (l *Lexer) Lex() Token {
 			}
 			return Token{Type: BIN_NUM, Start: l.tokStart, End: l.pos}
 
-		case MY_LEX_IDENT, MY_LEX_IDENT_OR_DOLLAR_QUOTED_TEXT:
+		case MY_LEX_IDENT_OR_DOLLAR_QUOTED_TEXT:
+			// Handle $ - could be:
+			// 1. $$ ... $$ (anonymous dollar-quoted string)
+			// 2. $tag$ ... $tag$ (tagged dollar-quoted string)
+			// 3. $ident (identifier starting with $)
+			// 4. $ alone (identifier)
+			//
+			// c is '$' (already consumed)
+			if l.yyPeek() == '$' {
+				// $$...$$ anonymous dollar-quoted string
+				l.yySkip() // consume second $
+				return l.scanDollarQuotedString("")
+			}
+
+			// Check for $tag$...$tag$ (tag is identifier chars between two $)
+			tagStart := l.pos
+			for isIdentChar(l.yyPeek()) && l.yyPeek() != '$' {
+				l.yySkip()
+			}
+
+			if l.yyPeek() == '$' && l.pos > tagStart {
+				// We have $tag$ - this is a tagged dollar-quoted string
+				tag := l.input[tagStart:l.pos]
+				l.yySkip() // consume the closing $ of the tag
+				return l.scanDollarQuotedString(tag)
+			}
+
+			// Not a dollar-quoted string - reset and treat as identifier
+			// Continue scanning as identifier ($ followed by ident chars)
+			for isIdentChar(l.yyPeek()) {
+				l.yySkip()
+			}
+
+			length := l.yyLength()
+			// Return as IDENT (no keyword check for $ identifiers)
+			return l.returnToken(Token{Type: IDENT, Start: l.tokStart, End: l.tokStart + length})
+
+		case MY_LEX_IDENT:
 			// Scan identifier
 			// The first character (c) was already consumed in MY_LEX_START
 			// Continue consuming identifier characters
@@ -459,6 +612,11 @@ func (l *Lexer) Lex() Token {
 			// Check if followed by '.' and identifier char
 			if l.yyPeek() == '.' && isIdentChar(l.yyPeekn(1)) {
 				l.nextState = MY_LEX_IDENT_SEP
+				// Still do keyword lookup for system variable scopes
+				// (global, session, etc. should be recognized as keywords)
+				if tokval := l.findKeyword(length, false); tokval != 0 {
+					return l.returnToken(Token{Type: tokval, Start: l.tokStart, End: l.tokStart + length})
+				}
 			} else {
 				l.yyUnget() // Unget the non-ident char
 
@@ -468,13 +626,13 @@ func (l *Lexer) Lex() Token {
 				if tokval := l.findKeyword(length, nextChar == '('); tokval != 0 {
 					l.yySkip() // Re-skip the character we ungot
 					l.nextState = MY_LEX_START
-					return Token{Type: tokval, Start: l.tokStart, End: l.tokStart + length}
+					return l.returnToken(Token{Type: tokval, Start: l.tokStart, End: l.tokStart + length})
 				}
 				l.yySkip() // Re-skip
 			}
 
 			// Return as IDENT
-			return Token{Type: IDENT, Start: l.tokStart, End: l.tokStart + length}
+			return l.returnToken(Token{Type: IDENT, Start: l.tokStart, End: l.tokStart + length})
 
 		case MY_LEX_IDENT_SEP:
 			// Found ident and now '.'
@@ -705,14 +863,33 @@ func (l *Lexer) Lex() Token {
 
 		case MY_LEX_LONG_COMMENT:
 			// Long C-style comment /* ... */ or version comment /*!50000 ... */
+			// or optimizer hint /*+ ... */
 			// c is '/' (already consumed)
 			if l.yyPeek() != '*' {
 				// Not a comment, just a '/' character (probably division)
-				return Token{Type: int(c), Start: l.tokStart, End: l.pos}
+				return l.returnToken(Token{Type: int(c), Start: l.tokStart, End: l.pos})
 			}
 
 			// Skip the '*'
 			l.yySkip()
+
+			// Check for optimizer hint /*+
+			if l.yyPeek() == '+' {
+				l.yySkip() // Skip '+'
+				// Check if last token was a hintable keyword
+				if l.isHintableKeyword(l.lastToken) {
+					// Enter hint mode
+					l.inHintComment = true
+					return l.returnToken(Token{Type: TOK_HINT_COMMENT_OPEN, Start: l.tokStart, End: l.pos})
+				}
+				// Not after hintable keyword - treat as regular comment
+				// Need to go back and consume the comment
+				if !l.consumeComment() {
+					return l.returnToken(Token{Type: ABORT_SYM, Start: l.tokStart, End: l.pos})
+				}
+				state = MY_LEX_START
+				continue
+			}
 
 			// Check for version comment /*!
 			if l.yyPeek() == '!' {
@@ -756,7 +933,7 @@ func (l *Lexer) Lex() Token {
 
 			// Regular comment or version comment to skip - consume until */
 			if !l.consumeComment() {
-				return Token{Type: ABORT_SYM, Start: l.tokStart, End: l.pos}
+				return l.returnToken(Token{Type: ABORT_SYM, Start: l.tokStart, End: l.pos})
 			}
 			state = MY_LEX_START
 			continue

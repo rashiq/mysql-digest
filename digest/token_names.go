@@ -802,7 +802,7 @@ func init() {
 	TokenInfos[SUBSTRING].String = "SUBSTRING"
 	TokenInfos[SUM_SYM].String = "SUM"
 	TokenInfos[SYSDATE].String = "SYSDATE"
-	TokenInfos[USER].String = "SYSTEM_USER"
+	TokenInfos[USER].String = "USER"
 	TokenInfos[TRIM].String = "TRIM"
 	TokenInfos[VARIANCE_SYM].String = "VARIANCE"
 	TokenInfos[VARIANCE_SYM].String = "VAR_POP"
