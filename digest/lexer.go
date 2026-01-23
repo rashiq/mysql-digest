@@ -167,6 +167,104 @@ func toUpper(s string) string {
 	return string(b)
 }
 
+// Constants for int_token comparison (matching MySQL's sql_lex.cc)
+const (
+	longStr             = "2147483647"
+	longLen             = 10
+	signedLongStr       = "-2147483648"
+	longlongStr         = "9223372036854775807"
+	longlongLen         = 19
+	signedLonglongStr   = "-9223372036854775808"
+	signedLonglongLen   = 19
+	unsignedLonglongStr = "18446744073709551615"
+	unsignedLonglongLen = 20
+)
+
+// intToken determines the token type for an integer based on its length/value.
+// Returns NUM, LONG_NUM, ULONGLONG_NUM, or DECIMAL_NUM.
+// This matches MySQL's int_token() function in sql_lex.cc.
+func (l *Lexer) intToken(length int) int {
+	str := l.input[l.tokStart : l.tokStart+length]
+
+	// Quick normal case - short numbers are always NUM
+	if length < longLen {
+		return NUM
+	}
+
+	neg := false
+	offset := 0
+
+	// Remove sign and pre-zeros
+	if len(str) > 0 && str[0] == '+' {
+		offset++
+		length--
+	} else if len(str) > 0 && str[0] == '-' {
+		offset++
+		length--
+		neg = true
+	}
+	str = str[offset:]
+
+	// Skip leading zeros
+	for length > 0 && len(str) > 0 && str[0] == '0' {
+		str = str[1:]
+		length--
+	}
+
+	if length < longLen {
+		return NUM
+	}
+
+	var cmp string
+	var smaller, bigger int
+
+	if neg {
+		if length == longLen {
+			cmp = signedLongStr[1:] // Skip the '-'
+			smaller = NUM
+			bigger = LONG_NUM
+		} else if length < signedLonglongLen {
+			return LONG_NUM
+		} else if length > signedLonglongLen {
+			return DECIMAL_NUM
+		} else {
+			cmp = signedLonglongStr[1:] // Skip the '-'
+			smaller = LONG_NUM
+			bigger = DECIMAL_NUM
+		}
+	} else {
+		if length == longLen {
+			cmp = longStr
+			smaller = NUM
+			bigger = LONG_NUM
+		} else if length < longlongLen {
+			return LONG_NUM
+		} else if length > longlongLen {
+			if length > unsignedLonglongLen {
+				return DECIMAL_NUM
+			}
+			cmp = unsignedLonglongStr
+			smaller = ULONGLONG_NUM
+			bigger = DECIMAL_NUM
+		} else {
+			cmp = longlongStr
+			smaller = LONG_NUM
+			bigger = ULONGLONG_NUM
+		}
+	}
+
+	// Compare digit by digit
+	for i := 0; i < len(str) && i < len(cmp); i++ {
+		if str[i] < cmp[i] {
+			return smaller
+		}
+		if str[i] > cmp[i] {
+			return bigger
+		}
+	}
+	return smaller // Equal means it fits
+}
+
 // Lex returns the next token from the input.
 // This is a stub that will be implemented state by state.
 func (l *Lexer) Lex() Token {
@@ -384,6 +482,143 @@ func (l *Lexer) Lex() Token {
 
 			// After separator, we don't do keyword lookup - it's always an identifier
 			return Token{Type: IDENT, Start: l.tokStart, End: l.tokStart + length}
+
+		case MY_LEX_NUMBER_IDENT:
+			// Number or identifier starting with digit
+			// c contains the first digit (already consumed)
+
+			// Check for 0x (hex) or 0b (binary) prefix
+			if c == '0' {
+				nextC := l.yyGet()
+				if nextC == 'x' || nextC == 'X' {
+					// Potential hex literal 0x...
+					for isHexDigit(l.yyPeek()) {
+						l.yySkip()
+					}
+					// Valid hex if length >= 3 (0x + at least one digit) and not followed by ident char
+					if l.yyLength() >= 3 && !isIdentChar(l.yyPeek()) {
+						return Token{Type: HEX_NUM, Start: l.tokStart, End: l.pos}
+					}
+					// Not valid hex - treat as identifier
+					l.yyUnget()
+					state = MY_LEX_IDENT_START
+					continue
+				} else if nextC == 'b' || nextC == 'B' {
+					// Potential binary literal 0b...
+					for {
+						peek := l.yyPeek()
+						if peek != '0' && peek != '1' {
+							break
+						}
+						l.yySkip()
+					}
+					// Valid binary if length >= 3 (0b + at least one digit) and not followed by ident char
+					if l.yyLength() >= 3 && !isIdentChar(l.yyPeek()) {
+						return Token{Type: BIN_NUM, Start: l.tokStart, End: l.pos}
+					}
+					// Not valid binary - treat as identifier
+					l.yyUnget()
+					state = MY_LEX_IDENT_START
+					continue
+				}
+				l.yyUnget() // Put back the char after '0'
+			}
+
+			// Consume remaining digits
+			for isDigit(l.yyPeek()) {
+				l.yySkip()
+			}
+
+			// Check what follows the digits
+			nextC := l.yyPeek()
+			if !isIdentChar(nextC) {
+				// Pure number, check for decimal or stay as int
+				state = MY_LEX_INT_OR_REAL
+				continue
+			}
+
+			// Check for exponent (e/E)
+			if nextC == 'e' || nextC == 'E' {
+				l.yySkip() // consume e/E
+				peek := l.yyPeek()
+				if isDigit(peek) {
+					// 1e10 format
+					l.yySkip()
+					for isDigit(l.yyPeek()) {
+						l.yySkip()
+					}
+					return Token{Type: FLOAT_NUM, Start: l.tokStart, End: l.pos}
+				}
+				if peek == '+' || peek == '-' {
+					l.yySkip() // consume sign
+					if isDigit(l.yyPeek()) {
+						l.yySkip()
+						for isDigit(l.yyPeek()) {
+							l.yySkip()
+						}
+						return Token{Type: FLOAT_NUM, Start: l.tokStart, End: l.pos}
+					}
+				}
+				// Not a valid float - unget and continue as identifier
+				l.yyUnget()
+			}
+
+			// Number followed by identifier chars - becomes identifier
+			// Fall through to IDENT_START to consume rest
+			state = MY_LEX_IDENT_START
+			continue
+
+		case MY_LEX_INT_OR_REAL:
+			// Complete int or start of real (after decimal point)
+			// c was the last char we read
+			nextC := l.yyPeek()
+			if nextC != '.' {
+				// Complete integer
+				length := l.yyLength()
+				return Token{Type: l.intToken(length), Start: l.tokStart, End: l.pos}
+			}
+			// Has decimal point - continue to REAL
+			l.yySkip() // consume '.'
+			state = MY_LEX_REAL
+			continue
+
+		case MY_LEX_REAL:
+			// Incomplete real number - consume fractional part
+			for isDigit(l.yyPeek()) {
+				l.yySkip()
+			}
+
+			// Check for exponent
+			nextC := l.yyPeek()
+			if nextC == 'e' || nextC == 'E' {
+				l.yySkip() // consume e/E
+				peek := l.yyPeek()
+				if peek == '+' || peek == '-' {
+					l.yySkip() // consume sign
+				}
+				if !isDigit(l.yyPeek()) {
+					// No digit after sign - error, return as char
+					state = MY_LEX_CHAR
+					continue
+				}
+				for isDigit(l.yyPeek()) {
+					l.yySkip()
+				}
+				return Token{Type: FLOAT_NUM, Start: l.tokStart, End: l.pos}
+			}
+
+			// Decimal number without exponent
+			return Token{Type: DECIMAL_NUM, Start: l.tokStart, End: l.pos}
+
+		case MY_LEX_REAL_OR_POINT:
+			// '.' - could be decimal number or just a dot
+			if isDigit(l.yyPeek()) {
+				// .5 format - decimal number
+				state = MY_LEX_REAL
+				continue
+			}
+			// Just a dot
+			return Token{Type: int(c), Start: l.tokStart, End: l.pos}
 
 		default:
 			// For now, return the character as a single-char token
