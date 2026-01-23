@@ -265,6 +265,19 @@ func (l *Lexer) intToken(length int) int {
 	return smaller // Equal means it fits
 }
 
+// consumeComment consumes a C-style comment until closing */.
+// Returns true if comment was properly closed, false if EOF reached.
+func (l *Lexer) consumeComment() bool {
+	for !l.eof() {
+		c := l.yyGet()
+		if c == '*' && l.yyPeek() == '/' {
+			l.yySkip() // Skip the '/'
+			return true
+		}
+	}
+	return false // Unclosed comment
+}
+
 // Lex returns the next token from the input.
 // This is a stub that will be implemented state by state.
 func (l *Lexer) Lex() Token {
@@ -689,6 +702,141 @@ func (l *Lexer) Lex() Token {
 				}
 			}
 			return Token{Type: IDENT_QUOTED, Start: l.tokStart, End: l.pos}
+
+		case MY_LEX_LONG_COMMENT:
+			// Long C-style comment /* ... */ or version comment /*!50000 ... */
+			// c is '/' (already consumed)
+			if l.yyPeek() != '*' {
+				// Not a comment, just a '/' character (probably division)
+				return Token{Type: int(c), Start: l.tokStart, End: l.pos}
+			}
+
+			// Skip the '*'
+			l.yySkip()
+
+			// Check for version comment /*!
+			if l.yyPeek() == '!' {
+				l.yySkip() // Skip '!'
+
+				// Check for version number (5 or 6 digits)
+				// Format: /*!50000 code */ or /*!32302 code */
+				version := 0
+				digitCount := 0
+				for i := 0; i < 6; i++ {
+					ch := l.yyPeekn(i)
+					if isDigit(ch) {
+						version = version*10 + int(ch-'0')
+						digitCount++
+					} else {
+						break
+					}
+				}
+
+				if digitCount >= 5 {
+					// Skip the version digits
+					l.yySkipn(digitCount)
+
+					// Check if version is <= current MySQL version (8.0.0 = 80000)
+					// We'll use 80400 as a reasonable current version
+					const currentVersion = 80400
+					if version <= currentVersion {
+						// Execute the content as code - restart lexing
+						state = MY_LEX_START
+						continue
+					}
+				} else if digitCount == 0 {
+					// /*! without version - always execute
+					state = MY_LEX_START
+					continue
+				}
+
+				// Version is too high or invalid - skip as comment
+				// Fall through to consume the comment
+			}
+
+			// Regular comment or version comment to skip - consume until */
+			if !l.consumeComment() {
+				return Token{Type: ABORT_SYM, Start: l.tokStart, End: l.pos}
+			}
+			state = MY_LEX_START
+			continue
+
+		case MY_LEX_END_LONG_COMMENT:
+			// '*' character - could be end of comment or just asterisk
+			// In normal parsing (not inside comment), this is just '*'
+			// The comment ending is handled inside consumeComment()
+			return Token{Type: int(c), Start: l.tokStart, End: l.pos}
+
+		case MY_LEX_CMP_OP:
+			// Comparison operators: >, >=, =, !=
+			// c is the first character (already consumed)
+			// Check if next char is also a comparison operator
+			nextState := getStateMap(l.yyPeek())
+			if nextState == MY_LEX_CMP_OP || nextState == MY_LEX_LONG_CMP_OP {
+				l.yySkip()
+			}
+			// Look up the operator in keywords
+			length := l.yyLength()
+			if tokval := l.findKeyword(length, false); tokval != 0 {
+				l.nextState = MY_LEX_START // Allow signed numbers after
+				return Token{Type: tokval, Start: l.tokStart, End: l.pos}
+			}
+			// Not found - return as single char
+			state = MY_LEX_CHAR
+			continue
+
+		case MY_LEX_LONG_CMP_OP:
+			// Long comparison operators: <, <=, <>, <=>, <<
+			// c is '<' (already consumed)
+			// Can have up to 3 characters: <=>
+			nextState := getStateMap(l.yyPeek())
+			if nextState == MY_LEX_CMP_OP || nextState == MY_LEX_LONG_CMP_OP {
+				l.yySkip()
+				// Check for third char (for <=>)
+				if getStateMap(l.yyPeek()) == MY_LEX_CMP_OP {
+					l.yySkip()
+				}
+			}
+			// Look up the operator in keywords
+			length := l.yyLength()
+			if tokval := l.findKeyword(length, false); tokval != 0 {
+				l.nextState = MY_LEX_START // Allow signed numbers after
+				return Token{Type: tokval, Start: l.tokStart, End: l.pos}
+			}
+			// Not found - return as single char
+			state = MY_LEX_CHAR
+			continue
+
+		case MY_LEX_BOOL:
+			// Boolean operators: && and ||
+			// c is & or | (already consumed)
+			// Need the same character again for &&/||
+			if l.yyPeek() != c {
+				// Single & or | - return as char
+				return Token{Type: int(c), Start: l.tokStart, End: l.pos}
+			}
+			l.yySkip()
+			// Look up && or ||
+			if tokval := l.findKeyword(2, false); tokval != 0 {
+				l.nextState = MY_LEX_START // Allow signed numbers after
+				return Token{Type: tokval, Start: l.tokStart, End: l.pos}
+			}
+			// Fallback (shouldn't happen)
+			return Token{Type: int(c), Start: l.tokStart, End: l.pos}
+
+		case MY_LEX_SET_VAR:
+			// := operator or just :
+			// c is ':' (already consumed)
+			if l.yyPeek() != '=' {
+				// Just ':'
+				return Token{Type: int(c), Start: l.tokStart, End: l.pos}
+			}
+			l.yySkip()
+			return Token{Type: SET_VAR, Start: l.tokStart, End: l.pos}
+
+		case MY_LEX_SEMICOLON:
+			// Semicolon - just return as char
+			return Token{Type: int(c), Start: l.tokStart, End: l.pos}
 
 		default:
 			// For now, return the character as a single-char token
