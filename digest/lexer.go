@@ -627,6 +627,69 @@ func (l *Lexer) Lex() Token {
 			// Just a dot
 			return Token{Type: int(c), Start: l.tokStart, End: l.pos}
 
+		case MY_LEX_STRING:
+			// Single-quoted string 'text'
+			// c is the opening quote (already consumed)
+			sep := c
+			for {
+				c = l.yyGet()
+				if c == 0 {
+					// Unclosed string
+					return Token{Type: ABORT_SYM, Start: l.tokStart, End: l.pos}
+				}
+				if c == '\\' && (l.sqlMode&MODE_NO_BACKSLASH_ESCAPES) == 0 {
+					// Backslash escape - skip the next character
+					if l.yyPeek() != 0 {
+						l.yySkip()
+					}
+					continue
+				}
+				if c == sep {
+					// Check for doubled quote (escape)
+					if l.yyPeek() == sep {
+						l.yySkip() // Skip the second quote
+						continue
+					}
+					// End of string
+					break
+				}
+			}
+			return Token{Type: TEXT_STRING, Start: l.tokStart, End: l.pos}
+
+		case MY_LEX_STRING_OR_DELIMITER:
+			// Double-quoted string or identifier (depends on ANSI_QUOTES mode)
+			// c is the opening quote (already consumed)
+			if (l.sqlMode & MODE_ANSI_QUOTES) != 0 {
+				// ANSI_QUOTES mode: " is an identifier delimiter
+				state = MY_LEX_USER_VARIABLE_DELIMITER
+				continue
+			}
+			// Default: " is a string delimiter (same as single quote)
+			state = MY_LEX_STRING
+			continue
+
+		case MY_LEX_USER_VARIABLE_DELIMITER:
+			// Backtick-quoted identifier `ident` or double-quoted ident in ANSI mode
+			// c is the opening quote (already consumed)
+			sep := c
+			for {
+				c = l.yyGet()
+				if c == 0 {
+					// Unclosed identifier
+					return Token{Type: ABORT_SYM, Start: l.tokStart, End: l.pos}
+				}
+				if c == sep {
+					// Check for doubled delimiter (escape)
+					if l.yyPeek() == sep {
+						l.yySkip() // Skip the second delimiter
+						continue
+					}
+					// End of identifier
+					break
+				}
+			}
+			return Token{Type: IDENT_QUOTED, Start: l.tokStart, End: l.pos}
+
 		default:
 			// For now, return the character as a single-char token
 			// This will be expanded in subsequent phases
