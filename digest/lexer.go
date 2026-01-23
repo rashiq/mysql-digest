@@ -391,8 +391,8 @@ func (l *Lexer) Lex() Token {
 			continue
 
 		case MY_LEX_HEX_NUMBER:
-			// X'hex' - skip the opening quote and consume hex digits
-			l.yySkip() // Skip the '
+			// X'hex' or x'hex' - skip the opening quote and consume hex digits
+			l.yySkip() // Skip the opening '
 			for {
 				c = l.yyGet()
 				if c == '\'' {
@@ -405,6 +405,13 @@ func (l *Lexer) Lex() Token {
 				if !isHexDigit(c) {
 					return Token{Type: ABORT_SYM, Start: l.tokStart, End: l.pos}
 				}
+			}
+			// MySQL checks: length includes x' (2) and closing ' (1), so total = hex_digits + 3
+			// For valid hex, need even number of hex digits, so (length % 2) should be 1 (odd)
+			// If length is even, we have odd hex digits → ABORT_SYM
+			length := l.yyLength()
+			if (length % 2) == 0 {
+				return Token{Type: ABORT_SYM, Start: l.tokStart, End: l.pos}
 			}
 			return Token{Type: HEX_NUM, Start: l.tokStart, End: l.pos}
 
