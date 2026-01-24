@@ -62,26 +62,26 @@ func (l *Lexer) TokenText(t Token) string {
 	return l.input[t.Start:t.End]
 }
 
-// ---- Internal helper methods (matching MySQL's Lex_input_stream) ----
+// ---- Internal helper methods ----
 
-// yyPeek returns the current character without advancing.
-func (l *Lexer) yyPeek() byte {
+// peek returns the current character without advancing.
+func (l *Lexer) peek() byte {
 	if l.pos >= len(l.input) {
 		return 0
 	}
 	return l.input[l.pos]
 }
 
-// yyPeekn returns the character at offset n from current position.
-func (l *Lexer) yyPeekn(n int) byte {
+// peekN returns the character at offset n from current position.
+func (l *Lexer) peekN(n int) byte {
 	if l.pos+n >= len(l.input) {
 		return 0
 	}
 	return l.input[l.pos+n]
 }
 
-// yyGet returns the current character and advances position.
-func (l *Lexer) yyGet() byte {
+// advance returns the current character and advances position.
+func (l *Lexer) advance() byte {
 	if l.pos >= len(l.input) {
 		return 0
 	}
@@ -90,30 +90,30 @@ func (l *Lexer) yyGet() byte {
 	return c
 }
 
-// yySkip advances position by one.
-func (l *Lexer) yySkip() {
+// skip advances position by one.
+func (l *Lexer) skip() {
 	if l.pos < len(l.input) {
 		l.pos++
 	}
 }
 
-// yySkipn advances position by n.
-func (l *Lexer) yySkipn(n int) {
+// skipN advances position by n.
+func (l *Lexer) skipN(n int) {
 	l.pos += n
 	if l.pos > len(l.input) {
 		l.pos = len(l.input)
 	}
 }
 
-// yyUnget moves position back by one.
-func (l *Lexer) yyUnget() {
+// backup moves position back by one.
+func (l *Lexer) backup() {
 	if l.pos > 0 {
 		l.pos--
 	}
 }
 
-// yyLength returns the length of the current token.
-func (l *Lexer) yyLength() int {
+// tokenLen returns the length of the current token.
+func (l *Lexer) tokenLen() int {
 	return l.pos - l.tokStart
 }
 
@@ -299,9 +299,9 @@ func (l *Lexer) intToken(length int) int {
 // Returns true if comment was properly closed, false if EOF reached.
 func (l *Lexer) consumeComment() bool {
 	for !l.eof() {
-		c := l.yyGet()
-		if c == '*' && l.yyPeek() == '/' {
-			l.yySkip() // Skip the '/'
+		c := l.advance()
+		if c == '*' && l.peek() == '/' {
+			l.skip() // Skip the '/'
 			return true
 		}
 	}
@@ -315,9 +315,9 @@ func (l *Lexer) lexHintToken() Token {
 
 	// Skip whitespace
 	for {
-		c := l.yyPeek()
+		c := l.peek()
 		if isSpace(c) {
-			l.yySkip()
+			l.skip()
 		} else {
 			break
 		}
@@ -325,9 +325,9 @@ func (l *Lexer) lexHintToken() Token {
 	l.restartToken()
 
 	// Check for end of hint comment */
-	if l.yyPeek() == '*' && l.yyPeekn(1) == '/' {
-		l.yySkip() // *
-		l.yySkip() // /
+	if l.peek() == '*' && l.peekN(1) == '/' {
+		l.skip() // *
+		l.skip() // /
 		l.inHintComment = false
 		return l.returnToken(Token{Type: TOK_HINT_COMMENT_CLOSE, Start: l.tokStart, End: l.pos})
 	}
@@ -338,14 +338,14 @@ func (l *Lexer) lexHintToken() Token {
 		return l.returnToken(Token{Type: ABORT_SYM, Start: l.tokStart, End: l.pos})
 	}
 
-	c := l.yyGet()
+	c := l.advance()
 
 	// Identifier or hint keyword
 	if isIdentStart(c) {
-		for isIdentChar(l.yyPeek()) {
-			l.yySkip()
+		for isIdentChar(l.peek()) {
+			l.skip()
 		}
-		length := l.yyLength()
+		length := l.tokenLen()
 		// Check if it's a hint keyword
 		text := l.input[l.tokStart : l.tokStart+length]
 		upper := toUpper(text)
@@ -358,8 +358,8 @@ func (l *Lexer) lexHintToken() Token {
 
 	// Number
 	if isDigit(c) {
-		for isDigit(l.yyPeek()) {
-			l.yySkip()
+		for isDigit(l.peek()) {
+			l.skip()
 		}
 		return l.returnToken(Token{Type: NUM, Start: l.tokStart, End: l.pos})
 	}
@@ -367,15 +367,15 @@ func (l *Lexer) lexHintToken() Token {
 	// Single-quoted string literal
 	if c == '\'' {
 		for {
-			ch := l.yyPeek()
+			ch := l.peek()
 			if l.eof() {
 				return l.returnToken(Token{Type: ABORT_SYM, Start: l.tokStart, End: l.pos})
 			}
-			l.yySkip()
+			l.skip()
 			if ch == '\'' {
 				// Check for escaped quote ''
-				if l.yyPeek() == '\'' {
-					l.yySkip()
+				if l.peek() == '\'' {
+					l.skip()
 					continue
 				}
 				break
@@ -387,15 +387,15 @@ func (l *Lexer) lexHintToken() Token {
 	// Backtick-quoted identifier
 	if c == '`' {
 		for {
-			ch := l.yyPeek()
+			ch := l.peek()
 			if l.eof() {
 				return l.returnToken(Token{Type: ABORT_SYM, Start: l.tokStart, End: l.pos})
 			}
-			l.yySkip()
+			l.skip()
 			if ch == '`' {
 				// Check for escaped backtick ``
-				if l.yyPeek() == '`' {
-					l.yySkip()
+				if l.peek() == '`' {
+					l.skip()
 					continue
 				}
 				break
@@ -427,18 +427,18 @@ func (l *Lexer) Lex() Token {
 		switch state {
 		case MY_LEX_START:
 			// Skip leading whitespace
-			for getStateMap(l.yyPeek()) == MY_LEX_SKIP {
-				l.yySkip()
+			for getStateMap(l.peek()) == MY_LEX_SKIP {
+				l.skip()
 			}
 
 			// Start of real token
 			l.restartToken()
-			c = l.yyGet()
+			c = l.advance()
 			state = getStateMap(c)
 
 		case MY_LEX_SKIP:
 			// Should not normally reach here, but handle it
-			l.yySkip()
+			l.skip()
 			state = MY_LEX_START
 
 		case MY_LEX_EOL:
@@ -448,9 +448,9 @@ func (l *Lexer) Lex() Token {
 		case MY_LEX_CHAR:
 			// Unknown or single char token
 			// Check for special two-char sequences with '-'
-			if c == '-' && l.yyPeek() == '-' {
+			if c == '-' && l.peek() == '-' {
 				// Check for "-- " comment (-- followed by space or control char)
-				nextChar := l.yyPeekn(1)
+				nextChar := l.peekN(1)
 				if isSpace(nextChar) || isCntrl(nextChar) {
 					state = MY_LEX_COMMENT
 					continue
@@ -458,11 +458,11 @@ func (l *Lexer) Lex() Token {
 			}
 
 			// Check for JSON arrow operators
-			if c == '-' && l.yyPeek() == '>' {
-				l.yySkip() // consume '>'
+			if c == '-' && l.peek() == '>' {
+				l.skip() // consume '>'
 				l.nextState = MY_LEX_START
-				if l.yyPeek() == '>' {
-					l.yySkip() // consume second '>'
+				if l.peek() == '>' {
+					l.skip() // consume second '>'
 					return Token{Type: JSON_UNQUOTED_SEPARATOR_SYM, Start: l.tokStart, End: l.pos}
 				}
 				return Token{Type: JSON_SEPARATOR_SYM, Start: l.tokStart, End: l.pos}
@@ -475,7 +475,7 @@ func (l *Lexer) Lex() Token {
 			}
 
 			// Check for placeholder '?'
-			if c == '?' && l.stmtPrepareMode && !isIdentChar(l.yyPeek()) {
+			if c == '?' && l.stmtPrepareMode && !isIdentChar(l.peek()) {
 				return Token{Type: PARAM_MARKER, Start: l.tokStart, End: l.pos}
 			}
 
@@ -486,7 +486,7 @@ func (l *Lexer) Lex() Token {
 			// Single-line comment (-- or #)
 			// Skip until end of line
 			for {
-				c = l.yyGet()
+				c = l.advance()
 				if c == 0 || c == '\n' {
 					break
 				}
@@ -496,22 +496,22 @@ func (l *Lexer) Lex() Token {
 
 		case MY_LEX_IDENT_OR_NCHAR:
 			// Check for N'string'
-			if l.yyPeek() != '\'' {
+			if l.peek() != '\'' {
 				state = MY_LEX_IDENT
 				continue
 			}
 			// Found N'string' - parse as NCHAR_STRING
-			l.yySkip() // Skip the opening '
+			l.skip() // Skip the opening '
 			// Find closing quote (handling escaped quotes)
 			for {
-				c = l.yyGet()
+				c = l.advance()
 				if c == 0 {
 					// Unclosed string - error
 					return Token{Type: ABORT_SYM, Start: l.tokStart, End: l.pos}
 				}
 				if c == '\'' {
-					if l.yyPeek() == '\'' {
-						l.yySkip() // Skip escaped quote
+					if l.peek() == '\'' {
+						l.skip() // Skip escaped quote
 					} else {
 						break // End of string
 					}
@@ -521,7 +521,7 @@ func (l *Lexer) Lex() Token {
 
 		case MY_LEX_IDENT_OR_HEX:
 			// Check for X'hex'
-			if l.yyPeek() == '\'' {
+			if l.peek() == '\'' {
 				state = MY_LEX_HEX_NUMBER
 				continue
 			}
@@ -531,7 +531,7 @@ func (l *Lexer) Lex() Token {
 
 		case MY_LEX_IDENT_OR_BIN:
 			// Check for B'bin'
-			if l.yyPeek() == '\'' {
+			if l.peek() == '\'' {
 				state = MY_LEX_BIN_NUMBER
 				continue
 			}
@@ -541,9 +541,9 @@ func (l *Lexer) Lex() Token {
 
 		case MY_LEX_HEX_NUMBER:
 			// X'hex' or x'hex' - skip the opening quote and consume hex digits
-			l.yySkip() // Skip the opening '
+			l.skip() // Skip the opening '
 			for {
-				c = l.yyGet()
+				c = l.advance()
 				if c == '\'' {
 					break
 				}
@@ -558,7 +558,7 @@ func (l *Lexer) Lex() Token {
 			// MySQL checks: length includes x' (2) and closing ' (1), so total = hex_digits + 3
 			// For valid hex, need even number of hex digits, so (length % 2) should be 1 (odd)
 			// If length is even, we have odd hex digits → ABORT_SYM
-			length := l.yyLength()
+			length := l.tokenLen()
 			if (length % 2) == 0 {
 				return Token{Type: ABORT_SYM, Start: l.tokStart, End: l.pos}
 			}
@@ -566,9 +566,9 @@ func (l *Lexer) Lex() Token {
 
 		case MY_LEX_BIN_NUMBER:
 			// B'bin' - skip the opening quote and consume binary digits
-			l.yySkip() // Skip the '
+			l.skip() // Skip the '
 			for {
-				c = l.yyGet()
+				c = l.advance()
 				if c == '\'' {
 					break
 				}
@@ -590,32 +590,32 @@ func (l *Lexer) Lex() Token {
 			// 4. $ alone (identifier)
 			//
 			// c is '$' (already consumed)
-			if l.yyPeek() == '$' {
+			if l.peek() == '$' {
 				// $$...$$ anonymous dollar-quoted string
-				l.yySkip() // consume second $
+				l.skip() // consume second $
 				return l.scanDollarQuotedString("")
 			}
 
 			// Check for $tag$...$tag$ (tag is identifier chars between two $)
 			tagStart := l.pos
-			for isIdentChar(l.yyPeek()) && l.yyPeek() != '$' {
-				l.yySkip()
+			for isIdentChar(l.peek()) && l.peek() != '$' {
+				l.skip()
 			}
 
-			if l.yyPeek() == '$' && l.pos > tagStart {
+			if l.peek() == '$' && l.pos > tagStart {
 				// We have $tag$ - this is a tagged dollar-quoted string
 				tag := l.input[tagStart:l.pos]
-				l.yySkip() // consume the closing $ of the tag
+				l.skip() // consume the closing $ of the tag
 				return l.scanDollarQuotedString(tag)
 			}
 
 			// Not a dollar-quoted string - reset and treat as identifier
 			// Continue scanning as identifier ($ followed by ident chars)
-			for isIdentChar(l.yyPeek()) {
-				l.yySkip()
+			for isIdentChar(l.peek()) {
+				l.skip()
 			}
 
-			length := l.yyLength()
+			length := l.tokenLen()
 			// Return as IDENT (no keyword check for $ identifiers)
 			return l.returnToken(Token{Type: IDENT, Start: l.tokStart, End: l.tokStart + length})
 
@@ -623,14 +623,14 @@ func (l *Lexer) Lex() Token {
 			// Scan identifier
 			// The first character (c) was already consumed in MY_LEX_START
 			// Continue consuming identifier characters
-			for isIdentChar(l.yyPeek()) {
-				l.yySkip()
+			for isIdentChar(l.peek()) {
+				l.skip()
 			}
 
-			length := l.yyLength()
+			length := l.tokenLen()
 
 			// Check if followed by '.' and identifier char
-			if l.yyPeek() == '.' && isIdentChar(l.yyPeekn(1)) {
+			if l.peek() == '.' && isIdentChar(l.peekN(1)) {
 				l.nextState = MY_LEX_IDENT_SEP
 				// Still do keyword lookup for system variable scopes
 				// (global, session, etc. should be recognized as keywords)
@@ -638,17 +638,17 @@ func (l *Lexer) Lex() Token {
 					return l.returnToken(Token{Type: tokval, Start: l.tokStart, End: l.tokStart + length})
 				}
 			} else {
-				l.yyUnget() // Unget the non-ident char
+				l.backup() // Unget the non-ident char
 
 				// Check if it's a keyword
 				// The '(' check is for function keywords
-				nextChar := l.yyPeekn(1)
+				nextChar := l.peekN(1)
 				if tokval := l.findKeyword(length, nextChar == '('); tokval != 0 {
-					l.yySkip() // Re-skip the character we ungot
+					l.skip() // Re-skip the character we ungot
 					l.nextState = MY_LEX_START
 					return l.returnToken(Token{Type: tokval, Start: l.tokStart, End: l.tokStart + length})
 				}
-				l.yySkip() // Re-skip
+				l.skip() // Re-skip
 			}
 
 			// Return as IDENT
@@ -657,8 +657,8 @@ func (l *Lexer) Lex() Token {
 		case MY_LEX_IDENT_SEP:
 			// Found ident and now '.'
 			// Return the '.' and set next state
-			c = l.yyGet() // Should be '.'
-			if isIdentChar(l.yyPeek()) {
+			c = l.advance() // Should be '.'
+			if isIdentChar(l.peek()) {
 				l.nextState = MY_LEX_IDENT_START
 			} else {
 				l.nextState = MY_LEX_START
@@ -668,13 +668,13 @@ func (l *Lexer) Lex() Token {
 		case MY_LEX_IDENT_START:
 			// Identifier after separator (like after '.' or in other contexts)
 			// Consume the identifier
-			for isIdentChar(l.yyPeek()) {
-				l.yySkip()
+			for isIdentChar(l.peek()) {
+				l.skip()
 			}
-			length := l.yyLength()
+			length := l.tokenLen()
 
 			// Check if followed by another '.' and identifier char
-			if l.yyPeek() == '.' && isIdentChar(l.yyPeekn(1)) {
+			if l.peek() == '.' && isIdentChar(l.peekN(1)) {
 				l.nextState = MY_LEX_IDENT_SEP
 			}
 
@@ -687,48 +687,48 @@ func (l *Lexer) Lex() Token {
 
 			// Check for 0x (hex) or 0b (binary) prefix
 			if c == '0' {
-				nextC := l.yyGet()
+				nextC := l.advance()
 				if nextC == 'x' || nextC == 'X' {
 					// Potential hex literal 0x...
-					for isHexDigit(l.yyPeek()) {
-						l.yySkip()
+					for isHexDigit(l.peek()) {
+						l.skip()
 					}
 					// Valid hex if length >= 3 (0x + at least one digit) and not followed by ident char
-					if l.yyLength() >= 3 && !isIdentChar(l.yyPeek()) {
+					if l.tokenLen() >= 3 && !isIdentChar(l.peek()) {
 						return Token{Type: HEX_NUM, Start: l.tokStart, End: l.pos}
 					}
 					// Not valid hex - treat as identifier
-					l.yyUnget()
+					l.backup()
 					state = MY_LEX_IDENT_START
 					continue
 				} else if nextC == 'b' || nextC == 'B' {
 					// Potential binary literal 0b...
 					for {
-						peek := l.yyPeek()
+						peek := l.peek()
 						if peek != '0' && peek != '1' {
 							break
 						}
-						l.yySkip()
+						l.skip()
 					}
 					// Valid binary if length >= 3 (0b + at least one digit) and not followed by ident char
-					if l.yyLength() >= 3 && !isIdentChar(l.yyPeek()) {
+					if l.tokenLen() >= 3 && !isIdentChar(l.peek()) {
 						return Token{Type: BIN_NUM, Start: l.tokStart, End: l.pos}
 					}
 					// Not valid binary - treat as identifier
-					l.yyUnget()
+					l.backup()
 					state = MY_LEX_IDENT_START
 					continue
 				}
-				l.yyUnget() // Put back the char after '0'
+				l.backup() // Put back the char after '0'
 			}
 
 			// Consume remaining digits
-			for isDigit(l.yyPeek()) {
-				l.yySkip()
+			for isDigit(l.peek()) {
+				l.skip()
 			}
 
 			// Check what follows the digits
-			nextC := l.yyPeek()
+			nextC := l.peek()
 			if !isIdentChar(nextC) {
 				// Pure number, check for decimal or stay as int
 				state = MY_LEX_INT_OR_REAL
@@ -737,28 +737,28 @@ func (l *Lexer) Lex() Token {
 
 			// Check for exponent (e/E)
 			if nextC == 'e' || nextC == 'E' {
-				l.yySkip() // consume e/E
-				peek := l.yyPeek()
+				l.skip() // consume e/E
+				peek := l.peek()
 				if isDigit(peek) {
 					// 1e10 format
-					l.yySkip()
-					for isDigit(l.yyPeek()) {
-						l.yySkip()
+					l.skip()
+					for isDigit(l.peek()) {
+						l.skip()
 					}
 					return Token{Type: FLOAT_NUM, Start: l.tokStart, End: l.pos}
 				}
 				if peek == '+' || peek == '-' {
-					l.yySkip() // consume sign
-					if isDigit(l.yyPeek()) {
-						l.yySkip()
-						for isDigit(l.yyPeek()) {
-							l.yySkip()
+					l.skip() // consume sign
+					if isDigit(l.peek()) {
+						l.skip()
+						for isDigit(l.peek()) {
+							l.skip()
 						}
 						return Token{Type: FLOAT_NUM, Start: l.tokStart, End: l.pos}
 					}
 				}
 				// Not a valid float - unget and continue as identifier
-				l.yyUnget()
+				l.backup()
 			}
 
 			// Number followed by identifier chars - becomes identifier
@@ -769,38 +769,38 @@ func (l *Lexer) Lex() Token {
 		case MY_LEX_INT_OR_REAL:
 			// Complete int or start of real (after decimal point)
 			// c was the last char we read
-			nextC := l.yyPeek()
+			nextC := l.peek()
 			if nextC != '.' {
 				// Complete integer
-				length := l.yyLength()
+				length := l.tokenLen()
 				return Token{Type: l.intToken(length), Start: l.tokStart, End: l.pos}
 			}
 			// Has decimal point - continue to REAL
-			l.yySkip() // consume '.'
+			l.skip() // consume '.'
 			state = MY_LEX_REAL
 			continue
 
 		case MY_LEX_REAL:
 			// Incomplete real number - consume fractional part
-			for isDigit(l.yyPeek()) {
-				l.yySkip()
+			for isDigit(l.peek()) {
+				l.skip()
 			}
 
 			// Check for exponent
-			nextC := l.yyPeek()
+			nextC := l.peek()
 			if nextC == 'e' || nextC == 'E' {
-				l.yySkip() // consume e/E
-				peek := l.yyPeek()
+				l.skip() // consume e/E
+				peek := l.peek()
 				if peek == '+' || peek == '-' {
-					l.yySkip() // consume sign
+					l.skip() // consume sign
 				}
-				if !isDigit(l.yyPeek()) {
+				if !isDigit(l.peek()) {
 					// No digit after sign - error, return as char
 					state = MY_LEX_CHAR
 					continue
 				}
-				for isDigit(l.yyPeek()) {
-					l.yySkip()
+				for isDigit(l.peek()) {
+					l.skip()
 				}
 				return Token{Type: FLOAT_NUM, Start: l.tokStart, End: l.pos}
 			}
@@ -810,7 +810,7 @@ func (l *Lexer) Lex() Token {
 
 		case MY_LEX_REAL_OR_POINT:
 			// '.' - could be decimal number or just a dot
-			if isDigit(l.yyPeek()) {
+			if isDigit(l.peek()) {
 				// .5 format - decimal number
 				state = MY_LEX_REAL
 				continue
@@ -823,22 +823,22 @@ func (l *Lexer) Lex() Token {
 			// c is the opening quote (already consumed)
 			sep := c
 			for {
-				c = l.yyGet()
+				c = l.advance()
 				if c == 0 {
 					// Unclosed string
 					return Token{Type: ABORT_SYM, Start: l.tokStart, End: l.pos}
 				}
 				if c == '\\' && (l.sqlMode&MODE_NO_BACKSLASH_ESCAPES) == 0 {
 					// Backslash escape - skip the next character
-					if l.yyPeek() != 0 {
-						l.yySkip()
+					if l.peek() != 0 {
+						l.skip()
 					}
 					continue
 				}
 				if c == sep {
 					// Check for doubled quote (escape)
-					if l.yyPeek() == sep {
-						l.yySkip() // Skip the second quote
+					if l.peek() == sep {
+						l.skip() // Skip the second quote
 						continue
 					}
 					// End of string
@@ -864,15 +864,15 @@ func (l *Lexer) Lex() Token {
 			// c is the opening quote (already consumed)
 			sep := c
 			for {
-				c = l.yyGet()
+				c = l.advance()
 				if c == 0 {
 					// Unclosed identifier
 					return Token{Type: ABORT_SYM, Start: l.tokStart, End: l.pos}
 				}
 				if c == sep {
 					// Check for doubled delimiter (escape)
-					if l.yyPeek() == sep {
-						l.yySkip() // Skip the second delimiter
+					if l.peek() == sep {
+						l.skip() // Skip the second delimiter
 						continue
 					}
 					// End of identifier
@@ -885,17 +885,17 @@ func (l *Lexer) Lex() Token {
 			// Long C-style comment /* ... */ or version comment /*!50000 ... */
 			// or optimizer hint /*+ ... */
 			// c is '/' (already consumed)
-			if l.yyPeek() != '*' {
+			if l.peek() != '*' {
 				// Not a comment, just a '/' character (probably division)
 				return l.returnToken(Token{Type: int(c), Start: l.tokStart, End: l.pos})
 			}
 
 			// Skip the '*'
-			l.yySkip()
+			l.skip()
 
 			// Check for optimizer hint /*+
-			if l.yyPeek() == '+' {
-				l.yySkip() // Skip '+'
+			if l.peek() == '+' {
+				l.skip() // Skip '+'
 				// Check if last token was a hintable keyword
 				if TokenIsHintable(l.lastToken) {
 					// Enter hint mode
@@ -912,15 +912,15 @@ func (l *Lexer) Lex() Token {
 			}
 
 			// Check for version comment /*!
-			if l.yyPeek() == '!' {
-				l.yySkip() // Skip '!'
+			if l.peek() == '!' {
+				l.skip() // Skip '!'
 
 				// Check for version number (5 or 6 digits)
 				// Format: /*!50000 code */ or /*!32302 code */
 				version := 0
 				digitCount := 0
 				for i := 0; i < 6; i++ {
-					ch := l.yyPeekn(i)
+					ch := l.peekN(i)
 					if isDigit(ch) {
 						version = version*10 + int(ch-'0')
 						digitCount++
@@ -931,7 +931,7 @@ func (l *Lexer) Lex() Token {
 
 				if digitCount >= 5 {
 					// Skip the version digits
-					l.yySkipn(digitCount)
+					l.skipN(digitCount)
 
 					// Check if version is <= current MySQL version (8.0.0 = 80000)
 					// We'll use 80400 as a reasonable current version
@@ -968,12 +968,12 @@ func (l *Lexer) Lex() Token {
 			// Comparison operators: >, >=, =, !=
 			// c is the first character (already consumed)
 			// Check if next char is also a comparison operator
-			nextState := getStateMap(l.yyPeek())
+			nextState := getStateMap(l.peek())
 			if nextState == MY_LEX_CMP_OP || nextState == MY_LEX_LONG_CMP_OP {
-				l.yySkip()
+				l.skip()
 			}
 			// Look up the operator in keywords
-			length := l.yyLength()
+			length := l.tokenLen()
 			if tokval := l.findKeyword(length, false); tokval != 0 {
 				l.nextState = MY_LEX_START // Allow signed numbers after
 				return Token{Type: tokval, Start: l.tokStart, End: l.pos}
@@ -986,16 +986,16 @@ func (l *Lexer) Lex() Token {
 			// Long comparison operators: <, <=, <>, <=>, <<
 			// c is '<' (already consumed)
 			// Can have up to 3 characters: <=>
-			nextState := getStateMap(l.yyPeek())
+			nextState := getStateMap(l.peek())
 			if nextState == MY_LEX_CMP_OP || nextState == MY_LEX_LONG_CMP_OP {
-				l.yySkip()
+				l.skip()
 				// Check for third char (for <=>)
-				if getStateMap(l.yyPeek()) == MY_LEX_CMP_OP {
-					l.yySkip()
+				if getStateMap(l.peek()) == MY_LEX_CMP_OP {
+					l.skip()
 				}
 			}
 			// Look up the operator in keywords
-			length := l.yyLength()
+			length := l.tokenLen()
 			if tokval := l.findKeyword(length, false); tokval != 0 {
 				l.nextState = MY_LEX_START // Allow signed numbers after
 				return Token{Type: tokval, Start: l.tokStart, End: l.pos}
@@ -1008,11 +1008,11 @@ func (l *Lexer) Lex() Token {
 			// Boolean operators: && and ||
 			// c is & or | (already consumed)
 			// Need the same character again for &&/||
-			if l.yyPeek() != c {
+			if l.peek() != c {
 				// Single & or | - return as char
 				return Token{Type: int(c), Start: l.tokStart, End: l.pos}
 			}
-			l.yySkip()
+			l.skip()
 			// Look up && or ||
 			if tokval := l.findKeyword(2, false); tokval != 0 {
 				l.nextState = MY_LEX_START // Allow signed numbers after
@@ -1024,11 +1024,11 @@ func (l *Lexer) Lex() Token {
 		case MY_LEX_SET_VAR:
 			// := operator or just :
 			// c is ':' (already consumed)
-			if l.yyPeek() != '=' {
+			if l.peek() != '=' {
 				// Just ':'
 				return Token{Type: int(c), Start: l.tokStart, End: l.pos}
 			}
-			l.yySkip()
+			l.skip()
 			return Token{Type: SET_VAR, Start: l.tokStart, End: l.pos}
 
 		case MY_LEX_SEMICOLON:
