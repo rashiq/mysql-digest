@@ -370,26 +370,9 @@ func (n *normalizer) tokenText(tok storedToken) string {
 		return "`" + escapeBackticks(tok.text) + "`"
 	case TOK_BY_NUMERIC_COLUMN:
 		return tok.text
-	case TOK_GENERIC_VALUE:
-		return "?"
-	case TOK_GENERIC_VALUE_LIST:
-		return "?, ..."
-	case TOK_ROW_SINGLE_VALUE:
-		return "(?)"
-	case TOK_ROW_SINGLE_VALUE_LIST:
-		return "(?) /* , ... */"
-	case TOK_ROW_MULTIPLE_VALUE:
-		return "(...)"
-	case TOK_ROW_MULTIPLE_VALUE_LIST:
-		return "(...) /* , ... */"
-	case TOK_IN_GENERIC_VALUE_EXPRESSION:
-		return "IN (...)"
 	default:
-		if tok.tokType < 256 && tok.tokType > 0 {
-			return string(rune(tok.tokType))
-		}
 		text := TokenString(tok.tokType)
-		if text == "" || text == "(unknown)" {
+		if text == "(unknown)" {
 			return ""
 		}
 		return text
@@ -397,27 +380,7 @@ func (n *normalizer) tokenText(tok storedToken) string {
 }
 
 func needsSpaceBefore(lastWritten, tokType int) bool {
-	// No space after opening paren or before closing paren
-	if lastWritten == '(' || tokType == ')' {
-		return false
-	}
-	// No space before comma
-	if tokType == ',' {
-		return false
-	}
-	// No space after dot or before dot
-	if lastWritten == '.' || tokType == '.' {
-		return false
-	}
-	// No space between @ symbols
-	if lastWritten == '@' && tokType == '@' {
-		return false
-	}
-	// No space after @
-	if lastWritten == '@' {
-		return false
-	}
-	return true
+	return TokenAppendSpace(lastWritten) && TokenPrependSpace(tokType)
 }
 
 func isLiteral(tokType int) bool {
@@ -445,37 +408,10 @@ func isNumericLiteral(tokType int) bool {
 // startsExpression returns true if the token can start an expression
 // (meaning a following +/- would be unary, not binary).
 func startsExpression(tokType int) bool {
-	switch tokType {
-	case 0, TOK_UNUSED: // Start of input or no token
-		return true
-	case '(', ',', '=', '+', '-', '*', '/', '%', '^', '~':
-		return true
-	case EQ, NE, LT, LE, GT_SYM, GE, EQUAL_SYM: // Comparison operators
-		return true
-	case AND_AND_SYM, OR_OR_SYM, AND_SYM, OR_SYM, XOR, NOT_SYM: // Logical
-		return true
-	case BETWEEN_SYM, IN_SYM, LIKE, REGEXP: // Predicates
-		return true
-	case SELECT_SYM, WHERE, HAVING, SET_SYM, VALUES, CASE_SYM, WHEN_SYM, THEN_SYM, ELSE:
-		return true
-	case RETURN_SYM, IF, WHILE_SYM, UNTIL_SYM:
-		return true
-	case BY: // ORDER BY, GROUP BY
-		return true
-	case LIMIT, OFFSET_SYM:
-		return true
-	case AS: // For expressions like CAST(x AS type)
-		return true
-	case SHIFT_LEFT, SHIFT_RIGHT: // Bit shift operators
-		return true
-	case '|', '&':
-		return true
-	case INTERVAL_SYM:
-		return true
-	case DIV_SYM, MOD_SYM:
+	if tokType == 0 || tokType == TOK_UNUSED {
 		return true
 	}
-	return false
+	return TokenStartExpr(tokType)
 }
 
 // stripIdentifierQuotes removes surrounding quotes from a quoted identifier.
