@@ -132,6 +132,12 @@ func isIdentChar(c byte) bool {
 		state == MY_LEX_IDENT_OR_NCHAR || state == MY_LEX_IDENT_OR_DOLLAR_QUOTED_TEXT
 }
 
+// isIdentStart returns true if the character can start an identifier.
+// Unlike isIdentChar, this excludes digits.
+func isIdentStart(c byte) bool {
+	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_'
+}
+
 // isSpace returns true if the character is a whitespace character.
 func isSpace(c byte) bool {
 	return c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\v' || c == '\f'

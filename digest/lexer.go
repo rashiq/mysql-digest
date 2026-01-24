@@ -62,11 +62,6 @@ func (l *Lexer) TokenText(t Token) string {
 	return l.input[t.Start:t.End]
 }
 
-// Input returns the original input string.
-func (l *Lexer) Input() string {
-	return l.input
-}
-
 // ---- Internal helper methods (matching MySQL's Lex_input_stream) ----
 
 // yyPeek returns the current character without advancing.
@@ -321,7 +316,7 @@ func (l *Lexer) lexHintToken() Token {
 	// Skip whitespace
 	for {
 		c := l.yyPeek()
-		if c == ' ' || c == '\t' || c == '\n' || c == '\r' {
+		if isSpace(c) {
 			l.yySkip()
 		} else {
 			break
@@ -412,11 +407,6 @@ func (l *Lexer) lexHintToken() Token {
 	// Single-char tokens (parens, comma, etc.)
 	// Return as their ASCII value
 	return l.returnToken(Token{Type: int(c), Start: l.tokStart, End: l.pos})
-}
-
-// isIdentStart returns true if the character can start an identifier
-func isIdentStart(c byte) bool {
-	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_'
 }
 
 // Lex returns the next token from the input.

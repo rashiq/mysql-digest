@@ -851,15 +851,6 @@ var TokenKeywords = map[string]int{
 	"NO_DERIVED_CONDITION_PUSHDOWN": NO_DERIVED_CONDITION_PUSHDOWN_HINT,
 }
 
-// LookupKeyword returns the token ID for a given keyword string
-// Returns 0 (IDENT) if not found (assuming caller handles IDENT)
-func LookupKeyword(s string) int {
-	if tok, ok := TokenKeywords[s]; ok {
-		return tok
-	}
-	return 0 // Not a keyword
-}
-
 // HintKeywords maps optimizer hint names to their token IDs.
 // These are only valid inside /*+ ... */ optimizer hint comments.
 var HintKeywords = map[string]int{
