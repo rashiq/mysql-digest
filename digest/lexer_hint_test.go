@@ -159,33 +159,90 @@ func TestLexer_Hint_WithStrings(t *testing.T) {
 	input := "SELECT /*+ SET_VAR(sql_mode='ANSI') */ 1"
 	l := NewLexer(input)
 
-	tok := l.Lex() // SELECT
-	if tok.Type != SELECT_SYM {
-		t.Errorf("expected SELECT_SYM, got %d (%s)", tok.Type, TokenString(tok.Type))
+	expected := []int{
+		SELECT_SYM,
+		TOK_HINT_COMMENT_OPEN,
+		SET_VAR_HINT,
+		'(',
+		IDENT,       // sql_mode
+		'=',         // =
+		TEXT_STRING, // 'ANSI'
+		')',
+		TOK_HINT_COMMENT_CLOSE,
+		NUM, // 1
 	}
 
-	tok = l.Lex() // TOK_HINT_COMMENT_OPEN
-	if tok.Type != TOK_HINT_COMMENT_OPEN {
-		t.Errorf("expected TOK_HINT_COMMENT_OPEN, got %d (%s)", tok.Type, TokenString(tok.Type))
+	for i, want := range expected {
+		tok := l.Lex()
+		if tok.Type != want {
+			t.Errorf("token %d: got %d (%s), want %d (%s)",
+				i, tok.Type, TokenString(tok.Type), want, TokenString(want))
+		}
 	}
 
-	tok = l.Lex() // SET_VAR_HINT
-	if tok.Type != SET_VAR_HINT {
-		t.Errorf("expected SET_VAR_HINT, got %d (%s)", tok.Type, TokenString(tok.Type))
+	// Verify EOF
+	tok := l.Lex()
+	if tok.Type != END_OF_INPUT {
+		t.Errorf("expected END_OF_INPUT, got %d (%s)", tok.Type, TokenString(tok.Type))
+	}
+}
+
+func TestLexer_Hint_WithBacktickIdent(t *testing.T) {
+	// Hint with backtick-quoted identifier
+	input := "SELECT /*+ SET_VAR(`sql_mode`='STRICT') */ 1"
+	l := NewLexer(input)
+
+	expected := []int{
+		SELECT_SYM,
+		TOK_HINT_COMMENT_OPEN,
+		SET_VAR_HINT,
+		'(',
+		IDENT, // `sql_mode` - backtick-quoted
+		'=',
+		TEXT_STRING, // 'STRICT'
+		')',
+		TOK_HINT_COMMENT_CLOSE,
+		NUM, // 1
 	}
 
-	tok = l.Lex() // (
-	if tok.Type != '(' {
-		t.Errorf("expected '(', got %d (%s)", tok.Type, TokenString(tok.Type))
+	for i, want := range expected {
+		tok := l.Lex()
+		if tok.Type != want {
+			t.Errorf("token %d: got %d (%s), want %d (%s)",
+				i, tok.Type, TokenString(tok.Type), want, TokenString(want))
+		}
+	}
+}
+
+func TestLexer_Hint_EscapedQuotes(t *testing.T) {
+	// Test escaped quotes inside strings
+	tests := []struct {
+		name   string
+		input  string
+		tokens []int
+	}{
+		{
+			name:   "escaped_single_quote",
+			input:  "SELECT /*+ SET_VAR(x='a''b') */ 1",
+			tokens: []int{SELECT_SYM, TOK_HINT_COMMENT_OPEN, SET_VAR_HINT, '(', IDENT, '=', TEXT_STRING, ')', TOK_HINT_COMMENT_CLOSE, NUM},
+		},
+		{
+			name:   "escaped_backtick",
+			input:  "SELECT /*+ SET_VAR(`col``name`=1) */ 1",
+			tokens: []int{SELECT_SYM, TOK_HINT_COMMENT_OPEN, SET_VAR_HINT, '(', IDENT, '=', NUM, ')', TOK_HINT_COMMENT_CLOSE, NUM},
+		},
 	}
 
-	tok = l.Lex() // sql_mode
-	if tok.Type != IDENT {
-		t.Errorf("expected IDENT, got %d (%s)", tok.Type, TokenString(tok.Type))
-	}
-
-	tok = l.Lex() // = (in hint mode, this is just '=')
-	if tok.Type != '=' {
-		t.Errorf("expected '=', got %d (%s)", tok.Type, TokenString(tok.Type))
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			l := NewLexer(tt.input)
+			for i, want := range tt.tokens {
+				tok := l.Lex()
+				if tok.Type != want {
+					t.Errorf("token %d: got %d (%s), want %d (%s)",
+						i, tok.Type, TokenString(tok.Type), want, TokenString(want))
+				}
+			}
+		})
 	}
 }

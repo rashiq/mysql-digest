@@ -422,3 +422,66 @@ func TestDigest_ComplexQueries(t *testing.T) {
 		})
 	}
 }
+
+func TestDigest_OptimizerHints(t *testing.T) {
+	tests := []struct {
+		name     string
+		sql      string
+		wantText string
+	}{
+		{
+			name:     "MAX_EXECUTION_TIME hint",
+			sql:      "SELECT /*+ MAX_EXECUTION_TIME(1000) */ * FROM t",
+			wantText: "SELECT /*+ MAX_EXECUTION_TIME (?) */ * FROM `t`",
+		},
+		{
+			name:     "SET_VAR with string value",
+			sql:      "SELECT /*+ SET_VAR(sql_mode = 'STRICT') */ 1",
+			wantText: "SELECT /*+ SET_VAR (`sql_mode` = ?) */ ?",
+		},
+		{
+			name:     "SET_VAR with numeric value",
+			sql:      "SELECT /*+ SET_VAR(sort_buffer_size=1000000) */ * FROM t",
+			wantText: "SELECT /*+ SET_VAR (`sort_buffer_size` = ?) */ * FROM `t`",
+		},
+		{
+			name:     "multiple hints",
+			sql:      "SELECT /*+ MAX_EXECUTION_TIME(8000) SET_VAR(sql_mode = 'STRICT_ALL_TABLES') */ * FROM t WHERE x IN (1, 2, 6)",
+			wantText: "SELECT /*+ MAX_EXECUTION_TIME (?) SET_VAR (`sql_mode` = ?) */ * FROM `t` WHERE `x` IN (...)",
+		},
+		{
+			name:     "NO_INDEX hint",
+			sql:      "SELECT /*+ NO_INDEX(t1 idx1) */ * FROM t1",
+			wantText: "SELECT /*+ NO_INDEX (`t1` `idx1`) */ * FROM `t1`",
+		},
+		{
+			name:     "empty hint",
+			sql:      "SELECT /*+ */ 1",
+			wantText: "SELECT /*+ */ ?",
+		},
+		{
+			name:     "hint in UPDATE",
+			sql:      "UPDATE /*+ NO_MERGE(t1) */ t1 SET x = 1",
+			wantText: "UPDATE /*+ NO_MERGE (`t1`) */ `t1` SET `x` = ?",
+		},
+		{
+			name:     "hint in DELETE",
+			sql:      "DELETE /*+ BKA(t1) */ FROM t1 WHERE id = 5",
+			wantText: "DELETE /*+ BKA (`t1`) */ FROM `t1` WHERE `id` = ?",
+		},
+		{
+			name:     "hint in INSERT",
+			sql:      "INSERT /*+ SET_VAR(foreign_key_checks=0) */ INTO t VALUES (1, 2)",
+			wantText: "INSERT /*+ SET_VAR (`foreign_key_checks` = ?) */ INTO `t` VALUES (...)",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			d := Compute(tt.sql)
+			if d.Text != tt.wantText {
+				t.Errorf("Compute(%q).Text = %q, want %q", tt.sql, d.Text, tt.wantText)
+			}
+		})
+	}
+}

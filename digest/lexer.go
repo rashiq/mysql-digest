@@ -380,6 +380,46 @@ func (l *Lexer) lexHintToken() Token {
 		return l.returnToken(Token{Type: NUM, Start: l.tokStart, End: l.pos})
 	}
 
+	// Single-quoted string literal
+	if c == '\'' {
+		for {
+			ch := l.yyPeek()
+			if l.eof() {
+				return l.returnToken(Token{Type: ABORT_SYM, Start: l.tokStart, End: l.pos})
+			}
+			l.yySkip()
+			if ch == '\'' {
+				// Check for escaped quote ''
+				if l.yyPeek() == '\'' {
+					l.yySkip()
+					continue
+				}
+				break
+			}
+		}
+		return l.returnToken(Token{Type: TEXT_STRING, Start: l.tokStart, End: l.pos})
+	}
+
+	// Backtick-quoted identifier
+	if c == '`' {
+		for {
+			ch := l.yyPeek()
+			if l.eof() {
+				return l.returnToken(Token{Type: ABORT_SYM, Start: l.tokStart, End: l.pos})
+			}
+			l.yySkip()
+			if ch == '`' {
+				// Check for escaped backtick ``
+				if l.yyPeek() == '`' {
+					l.yySkip()
+					continue
+				}
+				break
+			}
+		}
+		return l.returnToken(Token{Type: IDENT, Start: l.tokStart, End: l.pos})
+	}
+
 	// Single-char tokens (parens, comma, etc.)
 	// Return as their ASCII value
 	return l.returnToken(Token{Type: int(c), Start: l.tokStart, End: l.pos})

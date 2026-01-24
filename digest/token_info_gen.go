@@ -72,4 +72,6 @@ func initTokenInfoOverrides() {
 	TokenInfos[DIV_SYM].StartExpr = true
 	TokenInfos[MOD_SYM].StartExpr = true
 	TokenInfos['^'].StartExpr = true
+	TokenInfos[TOK_HINT_COMMENT_OPEN].String = "/*+"
+	TokenInfos[TOK_HINT_COMMENT_CLOSE].String = "*/"
 }
