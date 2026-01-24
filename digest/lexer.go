@@ -167,8 +167,9 @@ func (l *Lexer) isHintableKeyword(tok int) bool {
 	switch tok {
 	case SELECT_SYM, INSERT_SYM, UPDATE_SYM, DELETE_SYM, REPLACE_SYM:
 		return true
+	default:
+		return false
 	}
-	return false
 }
 
 // scanDollarQuotedString scans a dollar-quoted string.

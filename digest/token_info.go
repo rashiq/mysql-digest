@@ -1,7 +1,5 @@
 package digest
 
-import "strconv"
-
 // TokenInfo holds metadata about a token
 type TokenInfo struct {
 	String      string
@@ -73,14 +71,4 @@ func TokenStartExpr(tok int) bool {
 		return TokenInfos[tok].StartExpr
 	}
 	return false
-}
-
-// Helper for single char strings in overrides
-func charStr(c byte) string {
-	return string([]byte{c})
-}
-
-// Quote string for digest
-func Quote(s string) string {
-	return strconv.Quote(s)
 }

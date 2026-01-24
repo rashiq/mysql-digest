@@ -57,66 +57,303 @@ type Options struct {
 	MaxLength int
 }
 
-// normalizer handles SQL normalization
+// storedToken represents a token in the reduction stack
+type storedToken struct {
+	tokType int
+	text    string // For identifiers, the identifier text
+}
+
+// normalizer handles SQL normalization using MySQL's reduction-based approach
 type normalizer struct {
 	lexer            *Lexer
-	builder          strings.Builder
 	opts             Options
-	lastToken        int
-	secondLastToken  int  // Track second-to-last token for context
-	inValues         bool // Saw VALUES keyword, looking for row tuples
-	inList           bool // Inside IN (...) list or VALUES row
-	parenDepth       int  // Parenthesis depth for list tracking
-	listStart        int  // Paren depth when list started
-	sawFirstLiteral  bool // Saw first literal in list (for collapsing)
-	sawFirstRow      bool // Saw first VALUES row (for row collapsing)
-	valuesDepth      int  // Paren depth at VALUES context start
-	skippingRows     bool // Currently skipping subsequent VALUES rows
-	pendingSign      int  // Pending +/- token (0, '+', or '-')
-	pendingSignToken int  // The actual token type of pending sign
-	absorbedSign     bool // Did we absorb a unary sign this iteration?
-	inOrderOrGroupBy bool // Inside ORDER BY, GROUP BY, PARTITION BY clause
+	tokens           []storedToken // Token stack for reductions
+	lastIdentIndex   int           // Index after last identifier (for peek boundary)
+	inOrderOrGroupBy bool          // Inside ORDER BY, GROUP BY, PARTITION BY clause
+	inValues         bool          // Saw VALUES keyword
+	valuesParenDepth int           // Paren depth when VALUES was seen
+	sawFirstRow      bool          // Saw first row in VALUES
 }
 
 func newNormalizer(sql string) *normalizer {
 	return &normalizer{
-		lexer: NewLexer(sql),
+		lexer:          NewLexer(sql),
+		tokens:         make([]storedToken, 0, 256),
+		lastIdentIndex: 0,
 	}
 }
 
 func (n *normalizer) normalize() string {
 	n.lexer.SetSQLMode(n.opts.SQLMode)
 
+	parenDepth := 0
+
 	for {
 		tok := n.lexer.Lex()
 
 		if tok.Type == END_OF_INPUT {
+			// Remove trailing semicolon
+			if len(n.tokens) > 0 && n.tokens[len(n.tokens)-1].tokType == ';' {
+				n.tokens = n.tokens[:len(n.tokens)-1]
+			}
 			break
 		}
 
 		if tok.Type == ABORT_SYM {
-			// Error in SQL, return what we have
 			break
 		}
 
-		n.absorbedSign = false
-		n.processToken(tok)
+		tokType := tok.Type
 
-		// Update token history, but if we absorbed a unary sign,
-		// don't update lastToken (it was already restored)
-		if !n.absorbedSign {
-			n.secondLastToken = n.lastToken
-			n.lastToken = tok.Type
+		// Track paren depth for VALUES context
+		if tokType == '(' {
+			parenDepth++
+		} else if tokType == ')' {
+			parenDepth--
+		}
+
+		// Track VALUES keyword
+		if tokType == VALUES {
+			n.inValues = true
+			n.valuesParenDepth = parenDepth
+			n.sawFirstRow = false
+		}
+
+		// Reset VALUES context on certain keywords
+		if n.inValues && (tokType == ON_SYM || tokType == WHERE || tokType == SET_SYM) {
+			n.inValues = false
+		}
+
+		// Track ORDER BY / GROUP BY context
+		if tokType == ORDER_SYM || tokType == GROUP_SYM || tokType == PARTITION_SYM {
+			n.inOrderOrGroupBy = true
+		} else if n.inOrderOrGroupBy {
+			switch tokType {
+			case LIMIT, OFFSET_SYM, FOR_SYM, LOCK_SYM, PROCEDURE_SYM, SELECT_SYM, UPDATE_SYM, DELETE_SYM, INSERT_SYM, UNION_SYM, END_OF_INPUT, ';':
+				n.inOrderOrGroupBy = false
+			}
+		}
+
+		n.addToken(tok, parenDepth)
+	}
+
+	return n.buildOutput()
+}
+
+// addToken adds a token to the stack and performs reductions
+func (n *normalizer) addToken(tok Token, parenDepth int) {
+	tokType := tok.Type
+
+	switch tokType {
+	case NUM, LONG_NUM, ULONGLONG_NUM, DECIMAL_NUM, FLOAT_NUM, BIN_NUM, HEX_NUM:
+		// Handle unary +/- signs
+		n.reduceUnarySign()
+
+		// Special handling for ORDER BY / GROUP BY numeric columns
+		if n.inOrderOrGroupBy && n.isNumericColumnRef() {
+			n.storeToken(storedToken{tokType: TOK_BY_NUMERIC_COLUMN, text: n.lexer.TokenText(tok)})
+			return
+		}
+
+		// Reduce to TOK_GENERIC_VALUE
+		n.reduceToGenericValueAndList()
+
+	case LEX_HOSTNAME, TEXT_STRING, NCHAR_STRING, PARAM_MARKER:
+		// Reduce to TOK_GENERIC_VALUE
+		n.reduceToGenericValueAndList()
+
+	case NULL_SYM:
+		// NULL is also reduced to TOK_GENERIC_VALUE
+		n.reduceToGenericValueAndList()
+
+	case ')':
+		// Check for row value reductions
+		n.reduceCloseParen(parenDepth)
+
+	case IDENT, IDENT_QUOTED:
+		// Store identifier with its text
+		identText := n.lexer.TokenText(tok)
+		if tokType == IDENT_QUOTED {
+			identText = stripIdentifierQuotes(identText)
+		}
+		n.storeToken(storedToken{tokType: TOK_IDENT, text: identText})
+		n.lastIdentIndex = len(n.tokens)
+
+	default:
+		// Store token as-is
+		n.storeToken(storedToken{tokType: tokType})
+	}
+}
+
+// isNumericColumnRef checks if we're in a position where a numeric literal is a column reference
+func (n *normalizer) isNumericColumnRef() bool {
+	if len(n.tokens) == 0 {
+		return false
+	}
+	lastTok := n.tokens[len(n.tokens)-1].tokType
+	return lastTok == BY || lastTok == ',' || lastTok == '('
+}
+
+// reduceUnarySign handles unary +/- absorption
+func (n *normalizer) reduceUnarySign() {
+	for {
+		last, last2 := n.peekLast2Raw() // Use raw peek to include identifiers
+		if (last == '+' || last == '-') && startsExpression(last2) {
+			// Absorb the unary sign
+			n.tokens = n.tokens[:len(n.tokens)-1]
+		} else {
+			break
 		}
 	}
+}
 
-	result := strings.TrimSpace(n.builder.String())
+// reduceToGenericValueAndList reduces literals to TOK_GENERIC_VALUE and handles list building
+func (n *normalizer) reduceToGenericValueAndList() {
+	last, last2 := n.peekLast2()
 
-	// Trailing semicolon removal
-	if strings.HasSuffix(result, ";") {
-		result = strings.TrimSuffix(result, ";")
-		result = strings.TrimSpace(result)
+	if (last2 == TOK_GENERIC_VALUE || last2 == TOK_GENERIC_VALUE_LIST) && last == ',' {
+		// Reduce: TOK_GENERIC_VALUE_LIST := TOK_GENERIC_VALUE/LIST ',' TOK_GENERIC_VALUE
+		n.tokens = n.tokens[:len(n.tokens)-2]
+		n.storeToken(storedToken{tokType: TOK_GENERIC_VALUE_LIST})
+	} else {
+		n.storeToken(storedToken{tokType: TOK_GENERIC_VALUE})
 	}
+}
+
+// reduceCloseParen handles ')' token and row value reductions
+func (n *normalizer) reduceCloseParen(parenDepth int) {
+	last, last2 := n.peekLast2()
+
+	if last == TOK_GENERIC_VALUE && last2 == '(' {
+		// Reduce: TOK_ROW_SINGLE_VALUE := '(' TOK_GENERIC_VALUE ')'
+		n.tokens = n.tokens[:len(n.tokens)-2]
+		token := TOK_ROW_SINGLE_VALUE
+
+		// Check for IN reduction or row list
+		token = n.reduceRowSingleValue(token, parenDepth)
+		n.storeToken(storedToken{tokType: token})
+
+	} else if last == TOK_GENERIC_VALUE_LIST && last2 == '(' {
+		// Reduce: TOK_ROW_MULTIPLE_VALUE := '(' TOK_GENERIC_VALUE_LIST ')'
+		n.tokens = n.tokens[:len(n.tokens)-2]
+		token := TOK_ROW_MULTIPLE_VALUE
+
+		// Check for IN reduction or row list
+		token = n.reduceRowMultipleValue(token, parenDepth)
+		n.storeToken(storedToken{tokType: token})
+
+	} else {
+		// No reduction, just store the )
+		n.storeToken(storedToken{tokType: ')'})
+	}
+}
+
+// reduceRowSingleValue checks for further reductions after creating TOK_ROW_SINGLE_VALUE
+func (n *normalizer) reduceRowSingleValue(token int, parenDepth int) int {
+	last, last2 := n.peekLast2()
+
+	if (last2 == TOK_ROW_SINGLE_VALUE || last2 == TOK_ROW_SINGLE_VALUE_LIST) && last == ',' {
+		// Reduce to row list
+		n.tokens = n.tokens[:len(n.tokens)-2]
+		return TOK_ROW_SINGLE_VALUE_LIST
+	} else if last == IN_SYM {
+		// Reduce: TOK_IN_GENERIC_VALUE_EXPRESSION := IN_SYM TOK_ROW_SINGLE_VALUE
+		n.tokens = n.tokens[:len(n.tokens)-1]
+		return TOK_IN_GENERIC_VALUE_EXPRESSION
+	}
+
+	// Track first row for VALUES
+	if n.inValues && parenDepth == n.valuesParenDepth+1 {
+		n.sawFirstRow = true
+	}
+
+	return token
+}
+
+// reduceRowMultipleValue checks for further reductions after creating TOK_ROW_MULTIPLE_VALUE
+func (n *normalizer) reduceRowMultipleValue(token int, parenDepth int) int {
+	last, last2 := n.peekLast2()
+
+	if (last2 == TOK_ROW_MULTIPLE_VALUE || last2 == TOK_ROW_MULTIPLE_VALUE_LIST) && last == ',' {
+		// Reduce to row list
+		n.tokens = n.tokens[:len(n.tokens)-2]
+		return TOK_ROW_MULTIPLE_VALUE_LIST
+	} else if last == IN_SYM {
+		// Reduce: TOK_IN_GENERIC_VALUE_EXPRESSION := IN_SYM TOK_ROW_MULTIPLE_VALUE
+		n.tokens = n.tokens[:len(n.tokens)-1]
+		return TOK_IN_GENERIC_VALUE_EXPRESSION
+	}
+
+	// Track first row for VALUES
+	if n.inValues && parenDepth == n.valuesParenDepth+1 {
+		n.sawFirstRow = true
+	}
+
+	return token
+}
+
+// storeToken adds a token to the stack
+func (n *normalizer) storeToken(tok storedToken) {
+	n.tokens = append(n.tokens, tok)
+}
+
+// peekLast2 returns the last two non-identifier tokens from the stack
+func (n *normalizer) peekLast2() (last, last2 int) {
+	last = TOK_UNUSED
+	last2 = TOK_UNUSED
+
+	idx := len(n.tokens)
+	if idx > n.lastIdentIndex {
+		idx--
+		last = n.tokens[idx].tokType
+
+		if idx > n.lastIdentIndex {
+			idx--
+			last2 = n.tokens[idx].tokType
+		}
+	}
+	return
+}
+
+// peekLast2Raw returns the last two tokens from the stack (including identifiers)
+func (n *normalizer) peekLast2Raw() (last, last2 int) {
+	last = TOK_UNUSED
+	last2 = TOK_UNUSED
+
+	idx := len(n.tokens)
+	if idx > 0 {
+		idx--
+		last = n.tokens[idx].tokType
+
+		if idx > 0 {
+			idx--
+			last2 = n.tokens[idx].tokType
+		}
+	}
+	return
+}
+
+// buildOutput converts the token stack to output string
+func (n *normalizer) buildOutput() string {
+	var builder strings.Builder
+	lastWritten := 0
+
+	for _, tok := range n.tokens {
+		text := n.tokenText(tok)
+		if text == "" {
+			continue
+		}
+
+		// Add space if needed
+		if builder.Len() > 0 && needsSpaceBefore(lastWritten, tok.tokType) {
+			builder.WriteByte(' ')
+		}
+
+		builder.WriteString(text)
+		lastWritten = tok.tokType
+	}
+
+	result := strings.TrimSpace(builder.String())
 
 	// Apply max length if set
 	if n.opts.MaxLength > 0 && len(result) > n.opts.MaxLength {
@@ -126,243 +363,42 @@ func (n *normalizer) normalize() string {
 	return result
 }
 
-func (n *normalizer) processToken(tok Token) {
-	tokType := tok.Type
-
-	// Track VALUES keyword for row collapsing
-	if tokType == VALUES {
-		n.inValues = true
-		n.valuesDepth = n.parenDepth
-		n.sawFirstRow = false
-		n.skippingRows = false
-	}
-
-	// If we're skipping subsequent VALUES rows, skip everything until VALUES context ends
-	if n.skippingRows {
-		// Check for end of VALUES context
-		if tokType == ON_SYM || tokType == WHERE || tokType == SET_SYM || tokType == ';' || tokType == END_OF_INPUT {
-			n.inValues = false
-			n.skippingRows = false
-			// Fall through to process this token
-		} else {
-			// Skip this token
-			return
+// tokenText returns the output text for a token
+func (n *normalizer) tokenText(tok storedToken) string {
+	switch tok.tokType {
+	case TOK_IDENT:
+		return "`" + escapeBackticks(tok.text) + "`"
+	case TOK_BY_NUMERIC_COLUMN:
+		return tok.text
+	case TOK_GENERIC_VALUE:
+		return "?"
+	case TOK_GENERIC_VALUE_LIST:
+		return "?, ..."
+	case TOK_ROW_SINGLE_VALUE:
+		return "(?)"
+	case TOK_ROW_SINGLE_VALUE_LIST:
+		return "(?) /* , ... */"
+	case TOK_ROW_MULTIPLE_VALUE:
+		return "(...)"
+	case TOK_ROW_MULTIPLE_VALUE_LIST:
+		return "(...) /* , ... */"
+	case TOK_IN_GENERIC_VALUE_EXPRESSION:
+		return "IN (...)"
+	default:
+		if tok.tokType < 256 && tok.tokType > 0 {
+			return string(rune(tok.tokType))
 		}
-	}
-
-	// Track ORDER BY / GROUP BY context
-	if tokType == ORDER_SYM || tokType == GROUP_SYM || tokType == PARTITION_SYM {
-		n.inOrderOrGroupBy = true
-	} else if n.inOrderOrGroupBy {
-		// Reset on clauses that might end ORDER/GROUP BY
-		// Note: Most of these actually come *before* ORDER BY, but some
-		// like LIMIT, OFFSET, FOR (UPDATE), LOCK (IN SHARE MODE), PROCEDURE
-		// can validly follow.
-		switch tokType {
-		case LIMIT, OFFSET_SYM, FOR_SYM, LOCK_SYM, PROCEDURE_SYM, SELECT_SYM, UPDATE_SYM, DELETE_SYM, INSERT_SYM, UNION_SYM, END_OF_INPUT, ';':
-			n.inOrderOrGroupBy = false
-		}
-	}
-
-	// Handle pending sign (unary +/-)
-	// If we have a pending sign and the next token is a numeric literal,
-	// and the token before the sign can start an expression, absorb the sign
-	if n.pendingSign != 0 {
-		if n.isNumericLiteral(tokType) && n.startsExpression(n.secondLastToken) {
-			// Unary operator - absorb into the literal
-			// Restore lastToken to what it was before the sign
-			n.lastToken = n.secondLastToken
-			n.absorbedSign = true
-			n.pendingSign = 0
-			n.pendingSignToken = 0
-			// Fall through to process the literal normally
-		} else {
-			// Binary operator - output the pending sign
-			n.appendToken(string(rune(n.pendingSign)), n.pendingSignToken)
-			n.pendingSign = 0
-			n.pendingSignToken = 0
-		}
-	}
-
-	// Check if this is a potential unary +/- (defer output)
-	if (tokType == '+' || tokType == '-') && n.startsExpression(n.lastToken) {
-		n.pendingSign = tokType
-		n.pendingSignToken = tokType
-		return
-	}
-
-	// Handle literals - replace with ?
-	if n.isLiteral(tokType) {
-		// Special handling for numeric columns in ORDER BY / GROUP BY
-		// If we are in an ORDER/GROUP BY clause, and we see a numeric literal,
-		// and it is preceded by BY, comma, or open paren (for rollup/cube),
-		// we keep the literal as-is instead of replacing with ?.
-		if n.inOrderOrGroupBy && n.isNumericLiteral(tokType) {
-			if n.lastToken == BY || n.lastToken == ',' || n.lastToken == '(' {
-				// Don't replace with ?, keep the number
-				// But we still need to append it.
-				// Since we are returning early here, we need to handle the append manually
-				// or just fall through to the identifier handling logic?
-				// Actually, we can just *skip* the "return" here and let it fall through
-				// to the end where it appends text.
-				// BUT: The default logic at the end wraps identifiers in backticks.
-				// Literals shouldn't be wrapped in backticks.
-				// So we should append it here and return.
-
-				text := n.lexer.TokenText(tok)
-				n.appendToken(text, tokType)
-				return
-			}
-		}
-
-		// Check if we're in a list context (IN clause or VALUES row)
-		if n.inList && n.parenDepth >= n.listStart {
-			if n.sawFirstLiteral {
-				// We already emitted the summary '?' for this list.
-				// Skip this token.
-				return
-			}
-
-			// If this is the first token of interest (literal), emit '?' and mark as seen
-			n.sawFirstLiteral = true
-			n.appendToken("?", tokType)
-			return
-		}
-
-		n.appendToken("?", tokType)
-		return
-	}
-
-	// Track parentheses for list collapsing
-	if tokType == '(' {
-		n.parenDepth++
-		// Check if this starts an IN list
-		if n.lastToken == IN_SYM {
-			n.inList = true
-			n.listStart = n.parenDepth
-			n.sawFirstLiteral = false
-		}
-		// Check if this starts a VALUES row
-		if n.inValues && n.parenDepth == n.valuesDepth+1 {
-			// This is a row tuple in VALUES
-			if n.sawFirstRow {
-				// Start skipping subsequent rows
-				n.skippingRows = true
-				n.skipValuesRow()
-				n.parenDepth-- // skipValuesRow consumed the closing paren
-				return
-			}
-			n.inList = true
-			n.listStart = n.parenDepth
-			n.sawFirstLiteral = false
-		}
-
-		// If we are IN a list, and we see a '(', it might be a row constructor IN ((...))
-		// We want to collapse the whole list to IN (?)
-		if n.inList && n.parenDepth == n.listStart+1 {
-			if !n.sawFirstLiteral {
-				n.sawFirstLiteral = true
-				n.appendToken("?", tokType)
-				// We continue, but subsequent tokens will be skipped by the sawFirstLiteral check
-				// until we hit the closing ')' of the list.
-				// However, we need to be careful NOT to increment parenDepth again?
-				// We already did n.parenDepth++ at the top.
-				// If we skip subsequent tokens, we need to track parenDepth so we know when the list ends.
-				return
-			}
-			// If we already saw the first literal, this '(' is just skipped content.
-			return
-		}
-	} else if tokType == ')' {
-		if n.inList && n.parenDepth == n.listStart {
-			n.inList = false
-			n.sawFirstLiteral = false
-			// If we're in VALUES context and just closed a row tuple
-			if n.inValues && n.parenDepth == n.valuesDepth+1 {
-				n.sawFirstRow = true
-				n.skippingRows = true // Start skipping after first row closes
-			}
-		}
-		n.parenDepth--
-
-		// If we are skipping content in a list, we still need to process the closing paren of that list
-		// to exit the list state.
-		// The logic above handles exiting the state.
-		// But if we are deeper in the list (sawFirstLiteral is true), we should skip this ')' UNLESS it closes the list.
-		if n.inList && n.sawFirstLiteral && n.parenDepth >= n.listStart {
-			// It was skipped content.
-			return
-		}
-	}
-
-	// Skip commas inside collapsed lists
-	if tokType == ',' && n.inList && n.sawFirstLiteral {
-		return
-	}
-
-	// Reset VALUES context on certain keywords
-	if n.inValues && (tokType == ON_SYM || tokType == WHERE || tokType == SET_SYM || tokType == ';') {
-		n.inValues = false
-	}
-
-	// Get token text
-	var text string
-	if tokType < 256 {
-		// Single character token
-		text = string(rune(tokType))
-	} else {
-		// Use token info for named tokens
-		text = TokenString(tokType)
+		text := TokenString(tok.tokType)
 		if text == "" || text == "(unknown)" {
-			// Fall back to lexer's token text for identifiers
-			text = n.lexer.TokenText(tok)
+			return ""
 		}
+		return text
 	}
-
-	// Handle identifiers - wrap in backticks like MySQL does
-	if tokType == IDENT || tokType == IDENT_QUOTED {
-		identText := n.lexer.TokenText(tok)
-		// For IDENT_QUOTED, strip existing delimiters and get raw identifier
-		if tokType == IDENT_QUOTED {
-			identText = n.stripIdentifierQuotes(identText)
-		}
-		// Wrap in backticks, escaping any embedded backticks
-		text = "`" + n.escapeBackticks(identText) + "`"
-	}
-
-	n.appendToken(text, tokType)
 }
 
-// skipValuesRow skips tokens until the end of the current VALUES row
-func (n *normalizer) skipValuesRow() {
-	depth := 1 // We already saw the opening paren
-	for depth > 0 {
-		tok := n.lexer.Lex()
-		if tok.Type == END_OF_INPUT || tok.Type == ABORT_SYM {
-			break
-		}
-		if tok.Type == '(' {
-			depth++
-		} else if tok.Type == ')' {
-			depth--
-		}
-	}
-	// Update our paren depth - we consumed the closing paren
-	// No need to update since we didn't increment for the skipped row
-}
-
-func (n *normalizer) appendToken(text string, tokType int) {
-	// Add space before token if needed
-	if n.builder.Len() > 0 && n.needsSpaceBefore(tokType) {
-		n.builder.WriteByte(' ')
-	}
-
-	n.builder.WriteString(text)
-}
-
-func (n *normalizer) needsSpaceBefore(tokType int) bool {
+func needsSpaceBefore(lastWritten, tokType int) bool {
 	// No space after opening paren or before closing paren
-	if n.lastToken == '(' || tokType == ')' {
+	if lastWritten == '(' || tokType == ')' {
 		return false
 	}
 	// No space before comma
@@ -370,42 +406,35 @@ func (n *normalizer) needsSpaceBefore(tokType int) bool {
 		return false
 	}
 	// No space after dot or before dot
-	if n.lastToken == '.' || tokType == '.' {
+	if lastWritten == '.' || tokType == '.' {
 		return false
 	}
 	// No space between @ symbols
-	if n.lastToken == '@' && tokType == '@' {
+	if lastWritten == '@' && tokType == '@' {
 		return false
 	}
 	// No space after @
-	if n.lastToken == '@' {
+	if lastWritten == '@' {
 		return false
 	}
 	return true
 }
 
-func (n *normalizer) isLiteral(tokType int) bool {
+func isLiteral(tokType int) bool {
 	switch tokType {
-	case NUM, LONG_NUM, ULONGLONG_NUM, DECIMAL_NUM, FLOAT_NUM:
-		return true
-	case TEXT_STRING, NCHAR_STRING:
-		return true
-	case HEX_NUM, BIN_NUM:
-		return true
-	case LEX_HOSTNAME:
-		return true
-	case NULL_SYM:
-		// NULL is treated as a literal in digest (becomes ?)
-		return true
-	case PARAM_MARKER:
-		// Parameter markers (?) are already placeholders
+	case NUM, LONG_NUM, ULONGLONG_NUM, DECIMAL_NUM, FLOAT_NUM,
+		TEXT_STRING, NCHAR_STRING,
+		HEX_NUM, BIN_NUM,
+		LEX_HOSTNAME,
+		NULL_SYM,
+		PARAM_MARKER:
 		return true
 	}
 	return false
 }
 
-// isNumericLiteral returns true if the token is a numeric literal
-func (n *normalizer) isNumericLiteral(tokType int) bool {
+// isNumericLiteral returns true if the token is a numeric literal.
+func isNumericLiteral(tokType int) bool {
 	switch tokType {
 	case NUM, LONG_NUM, ULONGLONG_NUM, DECIMAL_NUM, FLOAT_NUM, HEX_NUM, BIN_NUM:
 		return true
@@ -414,15 +443,11 @@ func (n *normalizer) isNumericLiteral(tokType int) bool {
 }
 
 // startsExpression returns true if the token can start an expression
-// (meaning a following +/- would be unary, not binary)
-func (n *normalizer) startsExpression(tokType int) bool {
-	// Start of input
-	if tokType == 0 {
-		return true
-	}
-
-	// Operators and punctuation that start expressions
+// (meaning a following +/- would be unary, not binary).
+func startsExpression(tokType int) bool {
 	switch tokType {
+	case 0, TOK_UNUSED: // Start of input or no token
+		return true
 	case '(', ',', '=', '+', '-', '*', '/', '%', '^', '~':
 		return true
 	case EQ, NE, LT, LE, GT_SYM, GE, EQUAL_SYM: // Comparison operators
@@ -443,27 +468,28 @@ func (n *normalizer) startsExpression(tokType int) bool {
 		return true
 	case SHIFT_LEFT, SHIFT_RIGHT: // Bit shift operators
 		return true
+	case '|', '&':
+		return true
+	case INTERVAL_SYM:
+		return true
+	case DIV_SYM, MOD_SYM:
+		return true
 	}
 	return false
 }
 
-// stripIdentifierQuotes removes surrounding quotes from a quoted identifier
-// Handles backticks (`ident`) and double quotes ("ident" in ANSI_QUOTES mode)
-func (n *normalizer) stripIdentifierQuotes(s string) string {
+// stripIdentifierQuotes removes surrounding quotes from a quoted identifier.
+func stripIdentifierQuotes(s string) string {
 	if len(s) < 2 {
 		return s
 	}
 
-	// Check for backtick-quoted identifier
 	if s[0] == '`' && s[len(s)-1] == '`' {
-		// Remove backticks and unescape doubled backticks
 		inner := s[1 : len(s)-1]
 		return strings.ReplaceAll(inner, "``", "`")
 	}
 
-	// Check for double-quoted identifier (ANSI_QUOTES mode)
 	if s[0] == '"' && s[len(s)-1] == '"' {
-		// Remove quotes and unescape doubled quotes
 		inner := s[1 : len(s)-1]
 		return strings.ReplaceAll(inner, `""`, `"`)
 	}
@@ -471,7 +497,7 @@ func (n *normalizer) stripIdentifierQuotes(s string) string {
 	return s
 }
 
-// escapeBackticks escapes backticks in an identifier by doubling them
-func (n *normalizer) escapeBackticks(s string) string {
+// escapeBackticks escapes backticks in an identifier by doubling them.
+func escapeBackticks(s string) string {
 	return strings.ReplaceAll(s, "`", "``")
 }

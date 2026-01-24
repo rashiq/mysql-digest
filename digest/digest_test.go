@@ -104,27 +104,27 @@ func TestDigest_INClauseCollapsing(t *testing.T) {
 		{
 			name:     "IN with integers",
 			sql:      "SELECT * FROM t WHERE x IN (1, 2, 3)",
-			wantText: "SELECT * FROM `t` WHERE `x` IN (?)",
+			wantText: "SELECT * FROM `t` WHERE `x` IN (...)",
 		},
 		{
 			name:     "IN with strings",
 			sql:      "SELECT * FROM t WHERE x IN ('a', 'b', 'c')",
-			wantText: "SELECT * FROM `t` WHERE `x` IN (?)",
+			wantText: "SELECT * FROM `t` WHERE `x` IN (...)",
 		},
 		{
 			name:     "IN with single value",
 			sql:      "SELECT * FROM t WHERE x IN (1)",
-			wantText: "SELECT * FROM `t` WHERE `x` IN (?)",
+			wantText: "SELECT * FROM `t` WHERE `x` IN (...)",
 		},
 		{
 			name:     "IN with many values",
 			sql:      "SELECT * FROM t WHERE x IN (1, 2, 3, 4, 5, 6, 7, 8, 9, 10)",
-			wantText: "SELECT * FROM `t` WHERE `x` IN (?)",
+			wantText: "SELECT * FROM `t` WHERE `x` IN (...)",
 		},
 		{
 			name:     "NOT IN",
 			sql:      "SELECT * FROM t WHERE x NOT IN (1, 2, 3)",
-			wantText: "SELECT * FROM `t` WHERE `x` NOT IN (?)",
+			wantText: "SELECT * FROM `t` WHERE `x` NOT IN (...)",
 		},
 	}
 
@@ -308,27 +308,27 @@ func TestDigest_VALUESCollapsing(t *testing.T) {
 		{
 			name:     "single row multiple columns",
 			sql:      "INSERT INTO t VALUES (1, 'a', 3)",
-			wantText: "INSERT INTO `t` VALUES (?)",
+			wantText: "INSERT INTO `t` VALUES (...)",
 		},
 		{
 			name:     "multiple rows",
 			sql:      "INSERT INTO t VALUES (1), (2), (3)",
-			wantText: "INSERT INTO `t` VALUES (?)",
+			wantText: "INSERT INTO `t` VALUES (?) /* , ... */",
 		},
 		{
 			name:     "multiple rows with columns",
 			sql:      "INSERT INTO t VALUES (1, 'a'), (2, 'b'), (3, 'c')",
-			wantText: "INSERT INTO `t` VALUES (?)",
+			wantText: "INSERT INTO `t` VALUES (...) /* , ... */",
 		},
 		{
 			name:     "with column list",
 			sql:      "INSERT INTO t (col1, col2) VALUES (1, 'a'), (2, 'b')",
-			wantText: "INSERT INTO `t` (`col1`, `col2`) VALUES (?)",
+			wantText: "INSERT INTO `t` (`col1`, `col2`) VALUES (...) /* , ... */",
 		},
 		{
 			name:     "with ON DUPLICATE KEY",
 			sql:      "INSERT INTO t VALUES (1, 'a'), (2, 'b') ON DUPLICATE KEY UPDATE x = 1",
-			wantText: "INSERT INTO `t` VALUES (?) ON DUPLICATE KEY UPDATE `x` = ?",
+			wantText: "INSERT INTO `t` VALUES (...) /* , ... */ ON DUPLICATE KEY UPDATE `x` = ?",
 		},
 	}
 
@@ -361,7 +361,7 @@ func TestDigest_NullHandling(t *testing.T) {
 		{
 			name:     "NULL in IN clause",
 			sql:      "SELECT * FROM t WHERE x IN (1, NULL, 3)",
-			wantText: "SELECT * FROM `t` WHERE `x` IN (?)",
+			wantText: "SELECT * FROM `t` WHERE `x` IN (...)",
 		},
 	}
 
@@ -399,7 +399,7 @@ func TestDigest_ComplexQueries(t *testing.T) {
 		{
 			name:     "INSERT",
 			sql:      "INSERT INTO users (name, age) VALUES ('John', 25)",
-			wantText: "INSERT INTO `users` (NAME, `age`) VALUES (?)",
+			wantText: "INSERT INTO `users` (NAME, `age`) VALUES (...)",
 		},
 		{
 			name:     "UPDATE",
