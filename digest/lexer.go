@@ -161,17 +161,6 @@ func (l *Lexer) returnToken(t Token) Token {
 	return t
 }
 
-// isHintableKeyword returns true if the token is a keyword that can be followed
-// by optimizer hints /*+ ... */
-func (l *Lexer) isHintableKeyword(tok int) bool {
-	switch tok {
-	case SELECT_SYM, INSERT_SYM, UPDATE_SYM, DELETE_SYM, REPLACE_SYM:
-		return true
-	default:
-		return false
-	}
-}
-
 // scanDollarQuotedString scans a dollar-quoted string.
 // The opening delimiter (either $$ or $tag$) has already been consumed.
 // For anonymous: tag is empty, we look for $$
@@ -918,7 +907,7 @@ func (l *Lexer) Lex() Token {
 			if l.yyPeek() == '+' {
 				l.yySkip() // Skip '+'
 				// Check if last token was a hintable keyword
-				if l.isHintableKeyword(l.lastToken) {
+				if TokenIsHintable(l.lastToken) {
 					// Enter hint mode
 					l.inHintComment = true
 					return l.returnToken(Token{Type: TOK_HINT_COMMENT_OPEN, Start: l.tokStart, End: l.pos})

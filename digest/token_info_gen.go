@@ -100,4 +100,9 @@ func initTokenInfoOverrides() {
 	TokenInfos[DEFAULT_SYM].StartExpr = true
 	TokenInfos[TOK_HINT_COMMENT_OPEN].String = "/*+"
 	TokenInfos[TOK_HINT_COMMENT_CLOSE].String = "*/"
+	TokenInfos[SELECT_SYM].IsHintable = true
+	TokenInfos[INSERT_SYM].IsHintable = true
+	TokenInfos[UPDATE_SYM].IsHintable = true
+	TokenInfos[DELETE_SYM].IsHintable = true
+	TokenInfos[REPLACE_SYM].IsHintable = true
 }

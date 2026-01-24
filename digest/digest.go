@@ -383,28 +383,6 @@ func needsSpaceBefore(lastWritten, tokType int) bool {
 	return TokenAppendSpace(lastWritten) && TokenPrependSpace(tokType)
 }
 
-func isLiteral(tokType int) bool {
-	switch tokType {
-	case NUM, LONG_NUM, ULONGLONG_NUM, DECIMAL_NUM, FLOAT_NUM,
-		TEXT_STRING, NCHAR_STRING,
-		HEX_NUM, BIN_NUM,
-		LEX_HOSTNAME,
-		NULL_SYM,
-		PARAM_MARKER:
-		return true
-	}
-	return false
-}
-
-// isNumericLiteral returns true if the token is a numeric literal.
-func isNumericLiteral(tokType int) bool {
-	switch tokType {
-	case NUM, LONG_NUM, ULONGLONG_NUM, DECIMAL_NUM, FLOAT_NUM, HEX_NUM, BIN_NUM:
-		return true
-	}
-	return false
-}
-
 // startsExpression returns true if the token can start an expression
 // (meaning a following +/- would be unary, not binary).
 func startsExpression(tokType int) bool {

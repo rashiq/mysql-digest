@@ -7,6 +7,7 @@ type TokenInfo struct {
 	AppendSpace  bool
 	PrependSpace bool
 	StartExpr    bool
+	IsHintable   bool
 }
 
 // TokenInfos maps token IDs to their metadata
@@ -80,6 +81,14 @@ func TokenPrependSpace(tok int) bool {
 func TokenStartExpr(tok int) bool {
 	if tok >= 0 && tok < len(TokenInfos) {
 		return TokenInfos[tok].StartExpr
+	}
+	return false
+}
+
+// TokenIsHintable returns whether this token can be followed by optimizer hints /*+ ... */
+func TokenIsHintable(tok int) bool {
+	if tok >= 0 && tok < len(TokenInfos) {
+		return TokenInfos[tok].IsHintable
 	}
 	return false
 }
