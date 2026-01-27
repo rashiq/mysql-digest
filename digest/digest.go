@@ -70,9 +70,6 @@ type normalizer struct {
 	tokens           []storedToken // Token stack for reductions
 	lastIdentIndex   int           // Index after last identifier (for peek boundary)
 	inOrderOrGroupBy bool          // Inside ORDER BY, GROUP BY, PARTITION BY clause
-	inValues         bool          // Saw VALUES keyword
-	valuesParenDepth int           // Paren depth when VALUES was seen
-	sawFirstRow      bool          // Saw first row in VALUES
 }
 
 func newNormalizer(sql string) *normalizer {
@@ -85,8 +82,6 @@ func newNormalizer(sql string) *normalizer {
 
 func (n *normalizer) normalize() string {
 	n.lexer.SetSQLMode(n.opts.SQLMode)
-
-	parenDepth := 0
 
 	for {
 		tok := n.lexer.Lex()
@@ -105,25 +100,6 @@ func (n *normalizer) normalize() string {
 
 		tokType := tok.Type
 
-		// Track paren depth for VALUES context
-		if tokType == '(' {
-			parenDepth++
-		} else if tokType == ')' {
-			parenDepth--
-		}
-
-		// Track VALUES keyword
-		if tokType == VALUES {
-			n.inValues = true
-			n.valuesParenDepth = parenDepth
-			n.sawFirstRow = false
-		}
-
-		// Reset VALUES context on certain keywords
-		if n.inValues && (tokType == ON_SYM || tokType == WHERE || tokType == SET_SYM) {
-			n.inValues = false
-		}
-
 		// Track ORDER BY / GROUP BY context
 		if tokType == ORDER_SYM || tokType == GROUP_SYM || tokType == PARTITION_SYM {
 			n.inOrderOrGroupBy = true
@@ -134,14 +110,14 @@ func (n *normalizer) normalize() string {
 			}
 		}
 
-		n.addToken(tok, parenDepth)
+		n.addToken(tok)
 	}
 
 	return n.buildOutput()
 }
 
 // addToken adds a token to the stack and performs reductions
-func (n *normalizer) addToken(tok Token, parenDepth int) {
+func (n *normalizer) addToken(tok Token) {
 	tokType := tok.Type
 
 	switch tokType {
@@ -167,8 +143,9 @@ func (n *normalizer) addToken(tok Token, parenDepth int) {
 		n.reduceToGenericValueAndList()
 
 	case ')':
-		// Check for row value reductions
-		n.reduceCloseParen(parenDepth)
+		// On close paren, we store it first, then try to reduce the stack.
+		n.storeToken(storedToken{tokType: ')'})
+		n.reduceStack()
 
 	case IDENT, IDENT_QUOTED:
 		// Store identifier with its text
@@ -182,6 +159,7 @@ func (n *normalizer) addToken(tok Token, parenDepth int) {
 	default:
 		// Store token as-is
 		n.storeToken(storedToken{tokType: tokType})
+		n.reduceStack() // Try to reduce after other tokens too
 	}
 }
 
@@ -218,78 +196,129 @@ func (n *normalizer) reduceToGenericValueAndList() {
 	} else {
 		n.storeToken(storedToken{tokType: TOK_GENERIC_VALUE})
 	}
+	n.reduceStack()
 }
 
-// reduceCloseParen handles ')' token and row value reductions
-func (n *normalizer) reduceCloseParen(parenDepth int) {
-	last, last2 := n.peekLast2()
-
-	if last == TOK_GENERIC_VALUE && last2 == '(' {
-		// Reduce: TOK_ROW_SINGLE_VALUE := '(' TOK_GENERIC_VALUE ')'
-		n.tokens = n.tokens[:len(n.tokens)-2]
-		token := TOK_ROW_SINGLE_VALUE
-
-		// Check for IN reduction or row list
-		token = n.reduceRowSingleValue(token, parenDepth)
-		n.storeToken(storedToken{tokType: token})
-
-	} else if last == TOK_GENERIC_VALUE_LIST && last2 == '(' {
-		// Reduce: TOK_ROW_MULTIPLE_VALUE := '(' TOK_GENERIC_VALUE_LIST ')'
-		n.tokens = n.tokens[:len(n.tokens)-2]
-		token := TOK_ROW_MULTIPLE_VALUE
-
-		// Check for IN reduction or row list
-		token = n.reduceRowMultipleValue(token, parenDepth)
-		n.storeToken(storedToken{tokType: token})
-
-	} else {
-		// No reduction, just store the )
-		n.storeToken(storedToken{tokType: ')'})
+// reduceStack applies reduction rules to the token stack until no more apply.
+//
+// Reduction rules (in order of precedence):
+//
+//	Rule 1: '(' ? ')'      → (?)         Single value in parens
+//	Rule 2: '(' ?, ... ')' → (...)       Multiple values in parens
+//	Rule 3: (?) , (?)      → (?), ...    List of single-value rows
+//	Rule 4: (...) , (...)  → (...), ...  List of multi-value rows
+//	Rule 5: IN (?)         → IN (...)    Collapse IN clause
+//	Rule 6: IN (...)       → IN (...)    Collapse IN clause
+func (n *normalizer) reduceStack() {
+	for {
+		if n.tryReduceParenthesizedValue() {
+			continue
+		}
+		if n.tryReduceRowList() {
+			continue
+		}
+		if n.tryReduceInClause() {
+			continue
+		}
+		return // No reduction applied
 	}
 }
 
-// reduceRowSingleValue checks for further reductions after creating TOK_ROW_SINGLE_VALUE
-func (n *normalizer) reduceRowSingleValue(token int, parenDepth int) int {
-	last, last2 := n.peekLast2()
-
-	if (last2 == TOK_ROW_SINGLE_VALUE || last2 == TOK_ROW_SINGLE_VALUE_LIST) && last == ',' {
-		// Reduce to row list
-		n.tokens = n.tokens[:len(n.tokens)-2]
-		return TOK_ROW_SINGLE_VALUE_LIST
-	} else if last == IN_SYM {
-		// Reduce: TOK_IN_GENERIC_VALUE_EXPRESSION := IN_SYM TOK_ROW_SINGLE_VALUE
-		n.tokens = n.tokens[:len(n.tokens)-1]
-		return TOK_IN_GENERIC_VALUE_EXPRESSION
+// tryReduceParenthesizedValue handles: '(' VALUE ')' → ROW_VALUE
+// Returns true if a reduction was made.
+func (n *normalizer) tryReduceParenthesizedValue() bool {
+	if len(n.tokens) < 3 {
+		return false
 	}
 
-	// Track first row for VALUES
-	if n.inValues && parenDepth == n.valuesParenDepth+1 {
-		n.sawFirstRow = true
+	last := n.tokens[len(n.tokens)-1].tokType
+	mid := n.tokens[len(n.tokens)-2].tokType
+	first := n.tokens[len(n.tokens)-3].tokType
+
+	if last != ')' || first != '(' {
+		return false
 	}
 
-	return token
+	switch mid {
+	case TOK_GENERIC_VALUE:
+		// '(' ? ')' → (?)
+		n.tokens = n.tokens[:len(n.tokens)-3]
+		n.storeToken(storedToken{tokType: TOK_ROW_SINGLE_VALUE})
+		return true
+
+	case TOK_GENERIC_VALUE_LIST:
+		// '(' ?, ... ')' → (...)
+		n.tokens = n.tokens[:len(n.tokens)-3]
+		n.storeToken(storedToken{tokType: TOK_ROW_MULTIPLE_VALUE})
+		return true
+	}
+
+	return false
 }
 
-// reduceRowMultipleValue checks for further reductions after creating TOK_ROW_MULTIPLE_VALUE
-func (n *normalizer) reduceRowMultipleValue(token int, parenDepth int) int {
-	last, last2 := n.peekLast2()
+// tryReduceRowList handles: ROW ',' ROW → ROW_LIST
+// Returns true if a reduction was made.
+func (n *normalizer) tryReduceRowList() bool {
+	if len(n.tokens) < 3 {
+		return false
+	}
 
-	if (last2 == TOK_ROW_MULTIPLE_VALUE || last2 == TOK_ROW_MULTIPLE_VALUE_LIST) && last == ',' {
-		// Reduce to row list
+	last := n.tokens[len(n.tokens)-1].tokType
+	comma := n.tokens[len(n.tokens)-2].tokType
+	first := n.tokens[len(n.tokens)-3].tokType
+
+	if comma != ',' {
+		return false
+	}
+
+	// Single-value rows: (?) , (?) → (?), ...
+	if isSingleValueRow(last) && isSingleValueRow(first) {
+		n.tokens = n.tokens[:len(n.tokens)-3]
+		n.storeToken(storedToken{tokType: TOK_ROW_SINGLE_VALUE_LIST})
+		return true
+	}
+
+	// Multi-value rows: (...) , (...) → (...), ...
+	if isMultiValueRow(last) && isMultiValueRow(first) {
+		n.tokens = n.tokens[:len(n.tokens)-3]
+		n.storeToken(storedToken{tokType: TOK_ROW_MULTIPLE_VALUE_LIST})
+		return true
+	}
+
+	return false
+}
+
+// tryReduceInClause handles: IN ROW → IN (...)
+// Returns true if a reduction was made.
+func (n *normalizer) tryReduceInClause() bool {
+	if len(n.tokens) < 2 {
+		return false
+	}
+
+	last := n.tokens[len(n.tokens)-1].tokType
+	before := n.tokens[len(n.tokens)-2].tokType
+
+	if before != IN_SYM {
+		return false
+	}
+
+	if last == TOK_ROW_SINGLE_VALUE || last == TOK_ROW_MULTIPLE_VALUE {
 		n.tokens = n.tokens[:len(n.tokens)-2]
-		return TOK_ROW_MULTIPLE_VALUE_LIST
-	} else if last == IN_SYM {
-		// Reduce: TOK_IN_GENERIC_VALUE_EXPRESSION := IN_SYM TOK_ROW_MULTIPLE_VALUE
-		n.tokens = n.tokens[:len(n.tokens)-1]
-		return TOK_IN_GENERIC_VALUE_EXPRESSION
+		n.storeToken(storedToken{tokType: TOK_IN_GENERIC_VALUE_EXPRESSION})
+		return true
 	}
 
-	// Track first row for VALUES
-	if n.inValues && parenDepth == n.valuesParenDepth+1 {
-		n.sawFirstRow = true
-	}
+	return false
+}
 
-	return token
+// Helper: is this a single-value row token?
+func isSingleValueRow(tok int) bool {
+	return tok == TOK_ROW_SINGLE_VALUE || tok == TOK_ROW_SINGLE_VALUE_LIST
+}
+
+// Helper: is this a multi-value row token?
+func isMultiValueRow(tok int) bool {
+	return tok == TOK_ROW_MULTIPLE_VALUE || tok == TOK_ROW_MULTIPLE_VALUE_LIST
 }
 
 // storeToken adds a token to the stack
@@ -297,20 +326,16 @@ func (n *normalizer) storeToken(tok storedToken) {
 	n.tokens = append(n.tokens, tok)
 }
 
-// peekLast2 returns the last two non-identifier tokens from the stack
+// peekLast2 returns the last two tokens from the stack.
 func (n *normalizer) peekLast2() (last, last2 int) {
 	last = TOK_UNUSED
 	last2 = TOK_UNUSED
 
-	idx := len(n.tokens)
-	if idx > n.lastIdentIndex {
-		idx--
-		last = n.tokens[idx].tokType
-
-		if idx > n.lastIdentIndex {
-			idx--
-			last2 = n.tokens[idx].tokType
-		}
+	if len(n.tokens) >= 1 {
+		last = n.tokens[len(n.tokens)-1].tokType
+	}
+	if len(n.tokens) >= 2 {
+		last2 = n.tokens[len(n.tokens)-2].tokType
 	}
 	return
 }
