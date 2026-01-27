@@ -2,12 +2,11 @@ package digest
 
 // TokenInfo holds metadata about a token
 type TokenInfo struct {
-	String       string
-	Length       int
-	AppendSpace  bool
-	PrependSpace bool
-	StartExpr    bool
-	IsHintable   bool
+	String      string
+	Length      int
+	AppendSpace bool // If true, add space after this token (delayed until next token)
+	StartExpr   bool
+	IsHintable  bool
 }
 
 // TokenInfos maps token IDs to their metadata
@@ -18,14 +17,13 @@ var TokenInfos [1252]TokenInfo
 func init() {
 	// 1. Initialize all tokens with default values
 	// By default: AppendSpace = true, StartExpr = false
-	// For 0-255 (single char), String is the char hex
+	// MySQL's gen_lex_token.cc sets m_append_space = true for all tokens by default
 	for i := 0; i < 256; i++ {
 		TokenInfos[i] = TokenInfo{
-			String:       string(rune(i)),
-			Length:       1,
-			AppendSpace:  true,
-			PrependSpace: true,
-			StartExpr:    false,
+			String:      string(rune(i)),
+			Length:      1,
+			AppendSpace: true,
+			StartExpr:   false,
 		}
 	}
 
@@ -34,9 +32,8 @@ func init() {
 	// We'll set a default "AppendSpace=true" for everything else too, as per `gen_lex_token_string` constructor
 	for i := 256; i < len(TokenInfos); i++ {
 		TokenInfos[i] = TokenInfo{
-			AppendSpace:  true,
-			PrependSpace: true,
-			StartExpr:    false,
+			AppendSpace: true,
+			StartExpr:   false,
 		}
 	}
 
@@ -65,14 +62,6 @@ func TokenString(tok int) string {
 func TokenAppendSpace(tok int) bool {
 	if tok >= 0 && tok < len(TokenInfos) {
 		return TokenInfos[tok].AppendSpace
-	}
-	return true
-}
-
-// TokenPrependSpace returns whether a space should be prepended before this token
-func TokenPrependSpace(tok int) bool {
-	if tok >= 0 && tok < len(TokenInfos) {
-		return TokenInfos[tok].PrependSpace
 	}
 	return true
 }

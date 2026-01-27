@@ -42,7 +42,7 @@ func TestVerificationSteps(t *testing.T) {
 		{
 			name:     "Partition by numeric literal",
 			sql:      "CREATE TABLE t (id int) PARTITION BY 1",
-			expected: "CREATE TABLE `t` (`id` INTEGER) PARTITION BY 1",
+			expected: "CREATE TABLE `t` ( `id` INTEGER ) PARTITION BY 1",
 		},
 	}
 

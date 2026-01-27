@@ -162,12 +162,12 @@ func TestDigest_IdentifierPreservation(t *testing.T) {
 		{
 			name:     "table.column",
 			sql:      "SELECT t.id FROM users t",
-			wantText: "SELECT `t`.`id` FROM `users` `t`",
+			wantText: "SELECT `t` . `id` FROM `users` `t`",
 		},
 		{
 			name:     "database.table.column",
 			sql:      "SELECT db.t.id FROM db.users",
-			wantText: "SELECT `db`.`t`.`id` FROM `db`.`users`",
+			wantText: "SELECT `db` . `t` . `id` FROM `db` . `users`",
 		},
 	}
 
@@ -323,7 +323,7 @@ func TestDigest_VALUESCollapsing(t *testing.T) {
 		{
 			name:     "with column list",
 			sql:      "INSERT INTO t (col1, col2) VALUES (1, 'a'), (2, 'b')",
-			wantText: "INSERT INTO `t` (`col1`, `col2`) VALUES (...) /* , ... */",
+			wantText: "INSERT INTO `t` ( `col1` , `col2` ) VALUES (...) /* , ... */",
 		},
 		{
 			name:     "with ON DUPLICATE KEY",
@@ -356,7 +356,7 @@ func TestDigest_NullHandling(t *testing.T) {
 		{
 			name:     "IS NULL",
 			sql:      "SELECT * FROM t WHERE x IS NULL",
-			wantText: "SELECT * FROM `t` WHERE `x` IS ?",
+			wantText: "SELECT * FROM `t` WHERE `x` IS NULL",
 		},
 		{
 			name:     "NULL in IN clause",
@@ -384,12 +384,12 @@ func TestDigest_ComplexQueries(t *testing.T) {
 		{
 			name:     "JOIN query",
 			sql:      "SELECT u.id, o.total FROM users u JOIN orders o ON u.id = o.user_id WHERE o.total > 100",
-			wantText: "SELECT `u`.`id`, `o`.`total` FROM `users` `u` JOIN `orders` `o` ON `u`.`id` = `o`.`user_id` WHERE `o`.`total` > ?",
+			wantText: "SELECT `u` . `id` , `o` . `total` FROM `users` `u` JOIN `orders` `o` ON `u` . `id` = `o` . `user_id` WHERE `o` . `total` > ?",
 		},
 		{
 			name:     "GROUP BY with HAVING",
 			sql:      "SELECT status, COUNT(*) FROM orders GROUP BY status HAVING COUNT(*) > 5",
-			wantText: "SELECT STATUS, COUNT (*) FROM `orders` GROUP BY STATUS HAVING COUNT (*) > ?",
+			wantText: "SELECT STATUS , COUNT ( * ) FROM `orders` GROUP BY STATUS HAVING COUNT ( * ) > ?",
 		},
 		{
 			name:     "LIMIT and OFFSET",
@@ -399,12 +399,12 @@ func TestDigest_ComplexQueries(t *testing.T) {
 		{
 			name:     "INSERT",
 			sql:      "INSERT INTO users (name, age) VALUES ('John', 25)",
-			wantText: "INSERT INTO `users` (NAME, `age`) VALUES (...)",
+			wantText: "INSERT INTO `users` ( NAME , `age` ) VALUES (...)",
 		},
 		{
 			name:     "UPDATE",
 			sql:      "UPDATE users SET name = 'Jane', age = 30 WHERE id = 1",
-			wantText: "UPDATE `users` SET NAME = ?, `age` = ? WHERE `id` = ?",
+			wantText: "UPDATE `users` SET NAME = ? , `age` = ? WHERE `id` = ?",
 		},
 		{
 			name:     "DELETE",
@@ -437,22 +437,22 @@ func TestDigest_OptimizerHints(t *testing.T) {
 		{
 			name:     "SET_VAR with string value",
 			sql:      "SELECT /*+ SET_VAR(sql_mode = 'STRICT') */ 1",
-			wantText: "SELECT /*+ SET_VAR (`sql_mode` = ?) */ ?",
+			wantText: "SELECT /*+ SET_VAR ( `sql_mode` = ? ) */ ?",
 		},
 		{
 			name:     "SET_VAR with numeric value",
 			sql:      "SELECT /*+ SET_VAR(sort_buffer_size=1000000) */ * FROM t",
-			wantText: "SELECT /*+ SET_VAR (`sort_buffer_size` = ?) */ * FROM `t`",
+			wantText: "SELECT /*+ SET_VAR ( `sort_buffer_size` = ? ) */ * FROM `t`",
 		},
 		{
 			name:     "multiple hints",
 			sql:      "SELECT /*+ MAX_EXECUTION_TIME(8000) SET_VAR(sql_mode = 'STRICT_ALL_TABLES') */ * FROM t WHERE x IN (1, 2, 6)",
-			wantText: "SELECT /*+ MAX_EXECUTION_TIME (?) SET_VAR (`sql_mode` = ?) */ * FROM `t` WHERE `x` IN (...)",
+			wantText: "SELECT /*+ MAX_EXECUTION_TIME (?) SET_VAR ( `sql_mode` = ? ) */ * FROM `t` WHERE `x` IN (...)",
 		},
 		{
 			name:     "NO_INDEX hint",
 			sql:      "SELECT /*+ NO_INDEX(t1 idx1) */ * FROM t1",
-			wantText: "SELECT /*+ NO_INDEX (`t1` `idx1`) */ * FROM `t1`",
+			wantText: "SELECT /*+ NO_INDEX ( `t1` `idx1` ) */ * FROM `t1`",
 		},
 		{
 			name:     "empty hint",
@@ -462,17 +462,17 @@ func TestDigest_OptimizerHints(t *testing.T) {
 		{
 			name:     "hint in UPDATE",
 			sql:      "UPDATE /*+ NO_MERGE(t1) */ t1 SET x = 1",
-			wantText: "UPDATE /*+ NO_MERGE (`t1`) */ `t1` SET `x` = ?",
+			wantText: "UPDATE /*+ NO_MERGE ( `t1` ) */ `t1` SET `x` = ?",
 		},
 		{
 			name:     "hint in DELETE",
 			sql:      "DELETE /*+ BKA(t1) */ FROM t1 WHERE id = 5",
-			wantText: "DELETE /*+ BKA (`t1`) */ FROM `t1` WHERE `id` = ?",
+			wantText: "DELETE /*+ BKA ( `t1` ) */ FROM `t1` WHERE `id` = ?",
 		},
 		{
 			name:     "hint in INSERT",
 			sql:      "INSERT /*+ SET_VAR(foreign_key_checks=0) */ INTO t VALUES (1, 2)",
-			wantText: "INSERT /*+ SET_VAR (`foreign_key_checks` = ?) */ INTO `t` VALUES (...)",
+			wantText: "INSERT /*+ SET_VAR ( `foreign_key_checks` = ? ) */ INTO `t` VALUES (...)",
 		},
 	}
 

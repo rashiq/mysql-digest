@@ -18,7 +18,7 @@ func TestDigest_Collapsing(t *testing.T) {
 		{
 			name:     "IN with row constructors",
 			sql:      "SELECT * FROM t WHERE (a, b) IN ((1, 2), (3, 4))",
-			expected: "SELECT * FROM `t` WHERE (`a`, `b`) IN ((...) /* , ... */)",
+			expected: "SELECT * FROM `t` WHERE ( `a` , `b` ) IN ( (...) /* , ... */ )",
 		},
 		{
 			name:     "VALUES with multiple rows",
@@ -28,7 +28,7 @@ func TestDigest_Collapsing(t *testing.T) {
 		{
 			name:     "VALUES with multiple rows and columns",
 			sql:      "INSERT INTO t (a, b) VALUES (1, 2), (3, 4)",
-			expected: "INSERT INTO `t` (`a`, `b`) VALUES (...) /* , ... */",
+			expected: "INSERT INTO `t` ( `a` , `b` ) VALUES (...) /* , ... */",
 		},
 		{
 			name:     "IN with single value",
@@ -38,7 +38,7 @@ func TestDigest_Collapsing(t *testing.T) {
 		{
 			name:     "VALUES with single row single value",
 			sql:      "INSERT INTO t (a) VALUES (1)",
-			expected: "INSERT INTO `t` (`a`) VALUES (?)",
+			expected: "INSERT INTO `t` ( `a` ) VALUES (?)",
 		},
 	}
 

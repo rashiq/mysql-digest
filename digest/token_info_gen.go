@@ -34,12 +34,13 @@ func initTokenInfoOverrides() {
 	TokenInfos[TOK_IDENT_AT].String = "(tok_id_at)"
 	TokenInfos[TOK_BY_NUMERIC_COLUMN].String = "(by_num_col)"
 	TokenInfos[TOK_UNUSED].String = "UNUSED"
+
+	// MySQL only sets m_append_space = false for '@' token
+	// See gen_lex_token.cc line 391: compiled_token_array[(int)'@'].m_append_space = false;
 	TokenInfos['@'].AppendSpace = false
-	TokenInfos['('].AppendSpace = false
-	TokenInfos['.'].AppendSpace = false
-	TokenInfos[')'].PrependSpace = false
-	TokenInfos[','].PrependSpace = false
-	TokenInfos['.'].PrependSpace = false
+
+	// StartExpr tokens - these indicate a following +/- would be unary, not binary
+	// See gen_lex_token.cc lines 402-440
 	TokenInfos['('].StartExpr = true
 	TokenInfos[','].StartExpr = true
 	TokenInfos['='].StartExpr = true
@@ -67,7 +68,6 @@ func initTokenInfoOverrides() {
 	TokenInfos[XOR].StartExpr = true
 	TokenInfos[NOT_SYM].StartExpr = true
 	TokenInfos[BETWEEN_SYM].StartExpr = true
-	TokenInfos[IN_SYM].StartExpr = true
 	TokenInfos[LIKE].StartExpr = true
 	TokenInfos[REGEXP].StartExpr = true
 	TokenInfos[SELECT_SYM].StartExpr = true
@@ -98,8 +98,14 @@ func initTokenInfoOverrides() {
 	TokenInfos[STARTS_SYM].StartExpr = true
 	TokenInfos[ENDS_SYM].StartExpr = true
 	TokenInfos[DEFAULT_SYM].StartExpr = true
+	// IN_SYM is also a start_expr token (added for completeness)
+	TokenInfos[IN_SYM].StartExpr = true
+
+	// Hint comment tokens
 	TokenInfos[TOK_HINT_COMMENT_OPEN].String = "/*+"
 	TokenInfos[TOK_HINT_COMMENT_CLOSE].String = "*/"
+
+	// Hintable statement tokens
 	TokenInfos[SELECT_SYM].IsHintable = true
 	TokenInfos[INSERT_SYM].IsHintable = true
 	TokenInfos[UPDATE_SYM].IsHintable = true

@@ -3,12 +3,13 @@ package digest
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"strconv"
 	"strings"
 )
 
 // Digest represents a computed SQL digest
 type Digest struct {
-	// Hash is the SHA-256 hash of the normalized SQL (hex-encoded)
+	// Hash is the SHA-256 hash of the binary token array (hex-encoded)
 	Hash string
 	// Text is the normalized SQL text with literals replaced by placeholders
 	Text string
@@ -22,11 +23,14 @@ type Digest struct {
 // - Normalizing whitespace
 func Compute(sql string) Digest {
 	normalizer := newNormalizer(sql)
-	text := normalizer.normalize()
+	normalizer.normalize()
 
-	// Compute SHA-256 hash
-	hash := sha256.Sum256([]byte(text))
+	// Compute SHA-256 hash on binary token array (like MySQL does)
+	hash := sha256.Sum256(normalizer.tokenArray)
 	hashStr := hex.EncodeToString(hash[:])
+
+	// Build human-readable digest text
+	text := normalizer.buildOutput()
 
 	return Digest{
 		Hash: hashStr,
@@ -38,10 +42,12 @@ func Compute(sql string) Digest {
 func ComputeWithOptions(sql string, opts Options) Digest {
 	normalizer := newNormalizer(sql)
 	normalizer.opts = opts
-	text := normalizer.normalize()
+	normalizer.normalize()
 
-	hash := sha256.Sum256([]byte(text))
+	hash := sha256.Sum256(normalizer.tokenArray)
 	hashStr := hex.EncodeToString(hash[:])
+
+	text := normalizer.buildOutput()
 
 	return Digest{
 		Hash: hashStr,
@@ -57,7 +63,7 @@ type Options struct {
 	MaxLength int
 }
 
-// storedToken represents a token in the reduction stack
+// storedToken represents a token in the reduction stack (for text output)
 type storedToken struct {
 	tokType int
 	text    string // For identifiers, the identifier text
@@ -67,7 +73,8 @@ type storedToken struct {
 type normalizer struct {
 	lexer            *Lexer
 	opts             Options
-	tokens           []storedToken // Token stack for reductions
+	tokens           []storedToken // Token stack for reductions (used for text output)
+	tokenArray       []byte        // Binary token array for hashing (MySQL format)
 	lastIdentIndex   int           // Index after last identifier (for peek boundary)
 	inOrderOrGroupBy bool          // Inside ORDER BY, GROUP BY, PARTITION BY clause
 }
@@ -76,20 +83,67 @@ func newNormalizer(sql string) *normalizer {
 	return &normalizer{
 		lexer:          NewLexer(sql),
 		tokens:         make([]storedToken, 0, 256),
+		tokenArray:     make([]byte, 0, 1024),
 		lastIdentIndex: 0,
 	}
 }
 
-func (n *normalizer) normalize() string {
+// storeTokenBinary stores a token in the binary array (2 bytes, little-endian)
+func (n *normalizer) storeTokenBinary(token int) {
+	n.tokenArray = append(n.tokenArray, byte(token&0xff), byte((token>>8)&0xff))
+}
+
+// storeIdentifierBinary stores an identifier token with its text in the binary array
+// Format: 2 bytes (token) + 2 bytes (length) + N bytes (identifier text)
+func (n *normalizer) storeIdentifierBinary(token int, text string) {
+	// Write the token (2 bytes)
+	n.tokenArray = append(n.tokenArray, byte(token&0xff), byte((token>>8)&0xff))
+	// Write the string length (2 bytes)
+	length := len(text)
+	n.tokenArray = append(n.tokenArray, byte(length&0xff), byte((length>>8)&0xff))
+	// Write the string data
+	n.tokenArray = append(n.tokenArray, []byte(text)...)
+}
+
+// storeByNumericColumnBinary stores a TOK_BY_NUMERIC_COLUMN with its value
+// Format: 2 bytes (token) + 4 bytes (value as little-endian)
+func (n *normalizer) storeByNumericColumnBinary(value uint64) {
+	token := TOK_BY_NUMERIC_COLUMN
+	n.tokenArray = append(n.tokenArray, byte(token&0xff), byte((token>>8)&0xff))
+	// Write the value (4 bytes, little-endian)
+	n.tokenArray = append(n.tokenArray,
+		byte(value&0xff),
+		byte((value>>8)&0xff),
+		byte((value>>16)&0xff),
+		byte((value>>24)&0xff),
+	)
+}
+
+// removeLastTokenBinary removes the last token (2 bytes) from the binary array
+func (n *normalizer) removeLastTokenBinary() {
+	if len(n.tokenArray) >= 2 {
+		n.tokenArray = n.tokenArray[:len(n.tokenArray)-2]
+	}
+}
+
+// removeLastTwoTokensBinary removes the last two tokens (4 bytes) from the binary array
+func (n *normalizer) removeLastTwoTokensBinary() {
+	if len(n.tokenArray) >= 4 {
+		n.tokenArray = n.tokenArray[:len(n.tokenArray)-4]
+	}
+}
+
+func (n *normalizer) normalize() {
 	n.lexer.SetSQLMode(n.opts.SQLMode)
 
 	for {
 		tok := n.lexer.Lex()
 
 		if tok.Type == END_OF_INPUT {
-			// Remove trailing semicolon
+			// Remove trailing semicolon from both arrays
 			if len(n.tokens) > 0 && n.tokens[len(n.tokens)-1].tokType == ';' {
 				n.tokens = n.tokens[:len(n.tokens)-1]
+				n.removeLastTokenBinary()
 			}
 			break
 		}
@@ -112,8 +166,6 @@ func (n *normalizer) normalize() string {
 
 		n.addToken(tok)
 	}
-
-	return n.buildOutput()
 }
 
 // addToken adds a token to the stack and performs reductions
@@ -127,7 +179,10 @@ func (n *normalizer) addToken(tok Token) {
 
 		// Special handling for ORDER BY / GROUP BY numeric columns
 		if n.inOrderOrGroupBy && n.isNumericColumnRef() {
-			n.storeToken(storedToken{tokType: TOK_BY_NUMERIC_COLUMN, text: n.lexer.TokenText(tok)})
+			text := n.lexer.TokenText(tok)
+			value, _ := strconv.ParseUint(text, 10, 64)
+			n.storeByNumericColumnBinary(value)
+			n.storeToken(storedToken{tokType: TOK_BY_NUMERIC_COLUMN, text: text})
 			return
 		}
 
@@ -139,11 +194,21 @@ func (n *normalizer) addToken(tok Token) {
 		n.reduceToGenericValueAndList()
 
 	case NULL_SYM:
-		// NULL is also reduced to TOK_GENERIC_VALUE
-		n.reduceToGenericValueAndList()
+		// NULL is reduced to TOK_GENERIC_VALUE only when used as a literal value,
+		// NOT when it follows IS or IS NOT (e.g., "x IS NULL", "x IS NOT NULL").
+		// Check if the previous token is IS or NOT (preceded by IS).
+		if n.isNullKeywordContext() {
+			// Keep NULL as a keyword
+			n.storeTokenBinary(NULL_SYM)
+			n.storeToken(storedToken{tokType: NULL_SYM})
+		} else {
+			// Reduce to TOK_GENERIC_VALUE
+			n.reduceToGenericValueAndList()
+		}
 
 	case ')':
 		// On close paren, we store it first, then try to reduce the stack.
+		n.storeTokenBinary(')')
 		n.storeToken(storedToken{tokType: ')'})
 		n.reduceStack()
 
@@ -153,11 +218,14 @@ func (n *normalizer) addToken(tok Token) {
 		if tokType == IDENT_QUOTED {
 			identText = stripIdentifierQuotes(identText)
 		}
+		// Use TOK_IDENT for both IDENT and IDENT_QUOTED (normalized)
+		n.storeIdentifierBinary(TOK_IDENT, identText)
 		n.storeToken(storedToken{tokType: TOK_IDENT, text: identText})
 		n.lastIdentIndex = len(n.tokens)
 
 	default:
 		// Store token as-is
+		n.storeTokenBinary(tokType)
 		n.storeToken(storedToken{tokType: tokType})
 		n.reduceStack() // Try to reduce after other tokens too
 	}
@@ -172,13 +240,38 @@ func (n *normalizer) isNumericColumnRef() bool {
 	return lastTok == BY || lastTok == ',' || lastTok == '('
 }
 
+// isNullKeywordContext checks if NULL should be kept as a keyword (after IS or IS NOT)
+// rather than reduced to a generic value placeholder.
+func (n *normalizer) isNullKeywordContext() bool {
+	if len(n.tokens) == 0 {
+		return false
+	}
+	lastTok := n.tokens[len(n.tokens)-1].tokType
+
+	// IS NULL
+	if lastTok == IS {
+		return true
+	}
+
+	// IS NOT NULL - check if we have "IS NOT" pattern
+	if lastTok == NOT_SYM && len(n.tokens) >= 2 {
+		prevTok := n.tokens[len(n.tokens)-2].tokType
+		if prevTok == IS {
+			return true
+		}
+	}
+
+	return false
+}
+
 // reduceUnarySign handles unary +/- absorption
 func (n *normalizer) reduceUnarySign() {
 	for {
 		last, last2 := n.peekLast2Raw() // Use raw peek to include identifiers
 		if (last == '+' || last == '-') && startsExpression(last2) {
-			// Absorb the unary sign
+			// Absorb the unary sign from both arrays
 			n.tokens = n.tokens[:len(n.tokens)-1]
+			n.removeLastTokenBinary()
 		} else {
 			break
 		}
@@ -192,8 +285,11 @@ func (n *normalizer) reduceToGenericValueAndList() {
 	if (last2 == TOK_GENERIC_VALUE || last2 == TOK_GENERIC_VALUE_LIST) && last == ',' {
 		// Reduce: TOK_GENERIC_VALUE_LIST := TOK_GENERIC_VALUE/LIST ',' TOK_GENERIC_VALUE
 		n.tokens = n.tokens[:len(n.tokens)-2]
+		n.removeLastTwoTokensBinary()
+		n.storeTokenBinary(TOK_GENERIC_VALUE_LIST)
 		n.storeToken(storedToken{tokType: TOK_GENERIC_VALUE_LIST})
 	} else {
+		n.storeTokenBinary(TOK_GENERIC_VALUE)
 		n.storeToken(storedToken{tokType: TOK_GENERIC_VALUE})
 	}
 	n.reduceStack()
@@ -243,12 +339,21 @@ func (n *normalizer) tryReduceParenthesizedValue() bool {
 	case TOK_GENERIC_VALUE:
 		// '(' ? ')' → (?)
 		n.tokens = n.tokens[:len(n.tokens)-3]
+		// Remove 3 tokens from binary array (6 bytes)
+		if len(n.tokenArray) >= 6 {
+			n.tokenArray = n.tokenArray[:len(n.tokenArray)-6]
+		}
+		n.storeTokenBinary(TOK_ROW_SINGLE_VALUE)
 		n.storeToken(storedToken{tokType: TOK_ROW_SINGLE_VALUE})
 		return true
 
 	case TOK_GENERIC_VALUE_LIST:
 		// '(' ?, ... ')' → (...)
 		n.tokens = n.tokens[:len(n.tokens)-3]
+		if len(n.tokenArray) >= 6 {
+			n.tokenArray = n.tokenArray[:len(n.tokenArray)-6]
+		}
+		n.storeTokenBinary(TOK_ROW_MULTIPLE_VALUE)
 		n.storeToken(storedToken{tokType: TOK_ROW_MULTIPLE_VALUE})
 		return true
 	}
@@ -274,6 +379,10 @@ func (n *normalizer) tryReduceRowList() bool {
 	// Single-value rows: (?) , (?) → (?), ...
 	if isSingleValueRow(last) && isSingleValueRow(first) {
 		n.tokens = n.tokens[:len(n.tokens)-3]
+		if len(n.tokenArray) >= 6 {
+			n.tokenArray = n.tokenArray[:len(n.tokenArray)-6]
+		}
+		n.storeTokenBinary(TOK_ROW_SINGLE_VALUE_LIST)
 		n.storeToken(storedToken{tokType: TOK_ROW_SINGLE_VALUE_LIST})
 		return true
 	}
@@ -281,6 +390,10 @@ func (n *normalizer) tryReduceRowList() bool {
 	// Multi-value rows: (...) , (...) → (...), ...
 	if isMultiValueRow(last) && isMultiValueRow(first) {
 		n.tokens = n.tokens[:len(n.tokens)-3]
+		if len(n.tokenArray) >= 6 {
+			n.tokenArray = n.tokenArray[:len(n.tokenArray)-6]
+		}
+		n.storeTokenBinary(TOK_ROW_MULTIPLE_VALUE_LIST)
 		n.storeToken(storedToken{tokType: TOK_ROW_MULTIPLE_VALUE_LIST})
 		return true
 	}
@@ -304,6 +417,8 @@ func (n *normalizer) tryReduceInClause() bool {
 
 	if last == TOK_ROW_SINGLE_VALUE || last == TOK_ROW_MULTIPLE_VALUE {
 		n.tokens = n.tokens[:len(n.tokens)-2]
+		n.removeLastTwoTokensBinary()
+		n.storeTokenBinary(TOK_IN_GENERIC_VALUE_EXPRESSION)
 		n.storeToken(storedToken{tokType: TOK_IN_GENERIC_VALUE_EXPRESSION})
 		return true
 	}
@@ -358,10 +473,10 @@ func (n *normalizer) peekLast2Raw() (last, last2 int) {
 	return
 }
 
-// buildOutput converts the token stack to output string
+// buildOutput converts the token stack to output string using MySQL's delayed space approach
 func (n *normalizer) buildOutput() string {
 	var builder strings.Builder
-	lastWritten := 0
+	addSpace := false
 
 	for _, tok := range n.tokens {
 		text := n.tokenText(tok)
@@ -369,16 +484,18 @@ func (n *normalizer) buildOutput() string {
 			continue
 		}
 
-		// Add space if needed
-		if builder.Len() > 0 && needsSpaceBefore(lastWritten, tok.tokType) {
+		// Add delayed space before this token (if previous token requested it)
+		if addSpace {
 			builder.WriteByte(' ')
 		}
 
 		builder.WriteString(text)
-		lastWritten = tok.tokType
+
+		// Check if this token wants a space after it (delayed until next token)
+		addSpace = TokenAppendSpace(tok.tokType)
 	}
 
-	result := strings.TrimSpace(builder.String())
+	result := builder.String()
 
 	// Apply max length if set
 	if n.opts.MaxLength > 0 && len(result) > n.opts.MaxLength {
@@ -402,10 +519,6 @@ func (n *normalizer) tokenText(tok storedToken) string {
 		}
 		return text
 	}
-}
-
-func needsSpaceBefore(lastWritten, tokType int) bool {
-	return TokenAppendSpace(lastWritten) && TokenPrependSpace(tokType)
 }
 
 // startsExpression returns true if the token can start an expression

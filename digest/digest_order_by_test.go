@@ -23,12 +23,12 @@ func TestOrderByNumeric(t *testing.T) {
 		{
 			name:     "Order by multiple numeric columns",
 			sql:      "SELECT * FROM t ORDER BY 1, 2",
-			expected: "SELECT * FROM `t` ORDER BY 1, 2",
+			expected: "SELECT * FROM `t` ORDER BY 1 , 2",
 		},
 		{
 			name:     "Order by mixed columns",
 			sql:      "SELECT * FROM t ORDER BY a, 2, b",
-			expected: "SELECT * FROM `t` ORDER BY `a`, 2, `b`",
+			expected: "SELECT * FROM `t` ORDER BY `a` , 2 , `b`",
 		},
 		{
 			name:     "Order by numeric and limit",
@@ -48,7 +48,7 @@ func TestOrderByNumeric(t *testing.T) {
 		{
 			name:     "Partition by key",
 			sql:      "SELECT * FROM t PARTITION BY KEY(id) PARTITIONS 4",
-			expected: "SELECT * FROM `t` PARTITION BY KEY (`id`) PARTITIONS ?",
+			expected: "SELECT * FROM `t` PARTITION BY KEY ( `id` ) PARTITIONS ?",
 		},
 		{
 			// Note: PARTITION BY usually takes expressions or columns, not positional numbers like ORDER BY.
@@ -60,7 +60,7 @@ func TestOrderByNumeric(t *testing.T) {
 			// So `4` will be `?`. Correct.
 			name:     "Partition by partitions count",
 			sql:      "CREATE TABLE t (id int) PARTITION BY HASH(id) PARTITIONS 4",
-			expected: "CREATE TABLE `t` (`id` INTEGER) PARTITION BY HASH (`id`) PARTITIONS ?",
+			expected: "CREATE TABLE `t` ( `id` INTEGER ) PARTITION BY HASH ( `id` ) PARTITIONS ?",
 		},
 	}
 
