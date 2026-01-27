@@ -114,6 +114,22 @@ func TestMySQLCompatibility(t *testing.T) {
 			sql:      "SELECT DISTINCT category, FIRST_VALUE(name) OVER (PARTITION BY category ORDER BY price) AS cheapest FROM products",
 			wantHash: "b25149f2194dee30fc35666b1e0c3f9a42d8800e51e12d8c8890101fcd45f67d",
 		},
+		// UTF-8 identifier tests
+		{
+			name:     "Chinese table and column names",
+			sql:      `SELECT * FROM 用户表 WHERE 名字 = "test"`,
+			wantHash: "f43f4998e24eaadbfffbcf19144a44c27aadd8a814fc7e22d023706bce0604ef",
+		},
+		{
+			name:     "Chinese with backticks",
+			sql:      "SELECT `姓名`, `年龄` FROM `员工表` WHERE `部门` = '技术'",
+			wantHash: "983bfbac776785dfe15c6a8c6a67be36cc1100ba7411288cd3f1bea40bc1bf31",
+		},
+		{
+			name:     "Mixed ASCII and Chinese identifiers",
+			sql:      "SELECT user_id, 用户名 FROM users_用户 WHERE active = 1",
+			wantHash: "9e966b778c0ab8cb6399c81fddfaeca752e5e740b31f79e59e5e0aee6e5284c0",
+		},
 	}
 
 	for _, tt := range tests {

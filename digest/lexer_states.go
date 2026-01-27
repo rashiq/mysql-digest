@@ -58,6 +58,16 @@ func init() {
 		stateMap[c] = MY_LEX_IDENT
 	}
 
+	// High-bit bytes (0x80-0xFF) -> MY_LEX_IDENT
+	// In MySQL's UTF-8 ctype table (ctype_utf8mb4), all bytes 0x80-0xFF have
+	// ctype value 3 (MY_CHAR_U | MY_CHAR_L), meaning they are treated as alpha.
+	// This is how MySQL handles multi-byte UTF-8 characters in identifiers.
+	// See: mysql-server/strings/ctype-utf8.cc ctype_utf8mb4[] and
+	//      mysql-server/strings/sql_chars.cc init_state_maps()
+	for i := 0x80; i <= 0xFF; i++ {
+		stateMap[i] = MY_LEX_IDENT
+	}
+
 	// Digits -> MY_LEX_NUMBER_IDENT
 	for c := '0'; c <= '9'; c++ {
 		stateMap[c] = MY_LEX_NUMBER_IDENT
@@ -134,8 +144,9 @@ func isIdentChar(c byte) bool {
 
 // isIdentStart returns true if the character can start an identifier.
 // Unlike isIdentChar, this excludes digits.
+// High-bit bytes (0x80-0xFF) can also start identifiers for UTF-8 characters.
 func isIdentStart(c byte) bool {
-	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_'
+	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_' || c >= 0x80
 }
 
 // isSpace returns true if the character is a whitespace character.
