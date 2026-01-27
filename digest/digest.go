@@ -3,7 +3,6 @@ package digest
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"strconv"
 	"strings"
 )
 
@@ -71,20 +70,17 @@ type storedToken struct {
 
 // normalizer handles SQL normalization using MySQL's reduction-based approach
 type normalizer struct {
-	lexer            *Lexer
-	opts             Options
-	tokens           []storedToken // Token stack for reductions (used for text output)
-	tokenArray       []byte        // Binary token array for hashing (MySQL format)
-	lastIdentIndex   int           // Index after last identifier (for peek boundary)
-	inOrderOrGroupBy bool          // Inside ORDER BY, GROUP BY, PARTITION BY clause
+	lexer      *Lexer
+	opts       Options
+	tokens     []storedToken // Token stack for reductions (used for text output)
+	tokenArray []byte        // Binary token array for hashing (MySQL format)
 }
 
 func newNormalizer(sql string) *normalizer {
 	return &normalizer{
-		lexer:          NewLexer(sql),
-		tokens:         make([]storedToken, 0, 256),
-		tokenArray:     make([]byte, 0, 1024),
-		lastIdentIndex: 0,
+		lexer:      NewLexer(sql),
+		tokens:     make([]storedToken, 0, 256),
+		tokenArray: make([]byte, 0, 1024),
 	}
 }
 
@@ -103,20 +99,6 @@ func (n *normalizer) storeIdentifierBinary(token int, text string) {
 	n.tokenArray = append(n.tokenArray, byte(length&0xff), byte((length>>8)&0xff))
 	// Write the string data
 	n.tokenArray = append(n.tokenArray, []byte(text)...)
-}
-
-// storeByNumericColumnBinary stores a TOK_BY_NUMERIC_COLUMN with its value
-// Format: 2 bytes (token) + 4 bytes (value as little-endian)
-func (n *normalizer) storeByNumericColumnBinary(value uint64) {
-	token := TOK_BY_NUMERIC_COLUMN
-	n.tokenArray = append(n.tokenArray, byte(token&0xff), byte((token>>8)&0xff))
-	// Write the value (4 bytes, little-endian)
-	n.tokenArray = append(n.tokenArray,
-		byte(value&0xff),
-		byte((value>>8)&0xff),
-		byte((value>>16)&0xff),
-		byte((value>>24)&0xff),
-	)
 }
 
 // removeLastTokenBinary removes the last token (2 bytes) from the binary array
@@ -152,18 +134,6 @@ func (n *normalizer) normalize() {
 			break
 		}
 
-		tokType := tok.Type
-
-		// Track ORDER BY / GROUP BY context
-		if tokType == ORDER_SYM || tokType == GROUP_SYM || tokType == PARTITION_SYM {
-			n.inOrderOrGroupBy = true
-		} else if n.inOrderOrGroupBy {
-			switch tokType {
-			case LIMIT, OFFSET_SYM, FOR_SYM, LOCK_SYM, PROCEDURE_SYM, SELECT_SYM, UPDATE_SYM, DELETE_SYM, INSERT_SYM, UNION_SYM, END_OF_INPUT, ';':
-				n.inOrderOrGroupBy = false
-			}
-		}
-
 		n.addToken(tok)
 	}
 }
@@ -176,15 +146,6 @@ func (n *normalizer) addToken(tok Token) {
 	case NUM, LONG_NUM, ULONGLONG_NUM, DECIMAL_NUM, FLOAT_NUM, BIN_NUM, HEX_NUM:
 		// Handle unary +/- signs
 		n.reduceUnarySign()
-
-		// Special handling for ORDER BY / GROUP BY numeric columns
-		if n.inOrderOrGroupBy && n.isNumericColumnRef() {
-			text := n.lexer.TokenText(tok)
-			value, _ := strconv.ParseUint(text, 10, 64)
-			n.storeByNumericColumnBinary(value)
-			n.storeToken(storedToken{tokType: TOK_BY_NUMERIC_COLUMN, text: text})
-			return
-		}
 
 		// Reduce to TOK_GENERIC_VALUE
 		n.reduceToGenericValueAndList()
@@ -221,7 +182,6 @@ func (n *normalizer) addToken(tok Token) {
 		// Use TOK_IDENT for both IDENT and IDENT_QUOTED (normalized)
 		n.storeIdentifierBinary(TOK_IDENT, identText)
 		n.storeToken(storedToken{tokType: TOK_IDENT, text: identText})
-		n.lastIdentIndex = len(n.tokens)
 
 	default:
 		// Store token as-is
@@ -229,15 +189,6 @@ func (n *normalizer) addToken(tok Token) {
 		n.storeToken(storedToken{tokType: tokType})
 		n.reduceStack() // Try to reduce after other tokens too
 	}
-}
-
-// isNumericColumnRef checks if we're in a position where a numeric literal is a column reference
-func (n *normalizer) isNumericColumnRef() bool {
-	if len(n.tokens) == 0 {
-		return false
-	}
-	lastTok := n.tokens[len(n.tokens)-1].tokType
-	return lastTok == BY || lastTok == ',' || lastTok == '('
 }
 
 // isNullKeywordContext checks if NULL should be kept as a keyword (after IS or IS NOT)
@@ -510,8 +461,6 @@ func (n *normalizer) tokenText(tok storedToken) string {
 	switch tok.tokType {
 	case TOK_IDENT:
 		return "`" + escapeBackticks(tok.text) + "`"
-	case TOK_BY_NUMERIC_COLUMN:
-		return tok.text
 	default:
 		text := TokenString(tok.tokType)
 		if text == "(unknown)" {
