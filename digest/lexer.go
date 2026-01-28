@@ -36,16 +36,19 @@ type Lexer struct {
 	stmtPrepareMode bool     // Whether we're in prepared statement mode
 	inHintComment   bool     // Whether we're parsing inside a hint comment /*+ ... */
 	lastToken       int      // Last token returned (for hint detection)
-
-	// Injected dependencies (set via NewLexerWithConfig or defaults)
-	keywordResolver KeywordResolver // Resolves identifiers to keywords
-	stateMapper     StateMapper     // Maps characters to initial states
-	mysqlVersion    int             // Target MySQL version for version comments
+	mysqlVersion    int      // Target MySQL version for version comments
 }
 
-// NewLexer creates a new lexer for the given input with default configuration.
+// DefaultMySQLVersion is the default MySQL version (8.4.0).
+const DefaultMySQLVersion = 80400
+
+// NewLexer creates a new lexer for the given input.
 func NewLexer(input string) *Lexer {
-	return NewLexerWithConfig(input, DefaultConfig())
+	return &Lexer{
+		input:        input,
+		nextState:    MY_LEX_START,
+		mysqlVersion: DefaultMySQLVersion,
+	}
 }
 
 // SetSQLMode configures SQL mode flags.
@@ -128,11 +131,6 @@ func (l *Lexer) startToken() {
 	l.tokStart = l.pos
 }
 
-// restartToken resets token start to current position (after skipping whitespace).
-func (l *Lexer) restartToken() {
-	l.tokStart = l.pos
-}
-
 // eof returns true if we've reached end of input.
 func (l *Lexer) eof() bool {
 	return l.pos >= len(l.input)
@@ -145,11 +143,8 @@ func (l *Lexer) findKeyword(length int) int {
 	if length == 0 {
 		return 0
 	}
-	// Get the token text
 	text := l.input[l.tokStart : l.tokStart+length]
-
-	// Use injected resolver
-	if tok, ok := l.keywordResolver.Resolve(text); ok {
+	if tok, ok := TokenKeywords[toUpper(text)]; ok {
 		return tok
 	}
 	return 0
@@ -182,22 +177,8 @@ func (l *Lexer) consumeComment() bool {
 	return false // Unclosed comment
 }
 
-// applyResult processes a lexResult and returns the token if done, otherwise returns nil.
-// This centralizes the logic for handling state mutations from handler results.
-func (l *Lexer) applyResult(result lexResult) *Token {
-	if result.setNextLex {
-		l.nextState = result.nextLexState
-	}
-	if result.done {
-		return &result.token
-	}
-	return nil
-}
-
 // Lex returns the next token from the input.
-// This is the main lexer loop that dispatches to state handlers.
 func (l *Lexer) Lex() Token {
-	// Handle hint mode - parse optimizer hint content
 	if l.inHintComment {
 		return l.lexHintToken()
 	}
@@ -206,30 +187,22 @@ func (l *Lexer) Lex() Token {
 	state := l.nextState
 	l.nextState = MY_LEX_START
 
-	var c byte
-
 	for {
-		// Dispatch to handler for current state
-		result, handled := l.dispatchState(state, c)
+		result, handled := l.dispatchState(state)
 		if !handled {
-			// Unhandled state - return character as token (fallback)
+			c := byte(0)
 			if l.tokStart < len(l.input) {
 				c = l.input[l.tokStart]
 			}
 			return Token{Type: int(c), Start: l.tokStart, End: l.pos}
 		}
 
-		// Apply result: set nextState if needed, return token if done
-		if tok := l.applyResult(result); tok != nil {
-			return *tok
+		if result.setNextLex {
+			l.nextState = result.nextLexState
 		}
-
-		// Continue to next state
+		if result.done {
+			return result.token
+		}
 		state = result.nextState
-
-		// Update c if startChar was set (from dispatchStart)
-		if result.startChar != 0 {
-			c = result.startChar
-		}
 	}
 }

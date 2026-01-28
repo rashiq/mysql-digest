@@ -60,13 +60,15 @@ func (l *Lexer) scanQuoted(sep byte, mode QuoteScanMode, tokenType int) lexResul
 
 // handleString handles MY_LEX_STRING state - single-quoted strings.
 // Uses the unified scanQuoted with string mode for backslash escape handling.
-func (l *Lexer) handleString(sep byte) lexResult {
+func (l *Lexer) handleString() lexResult {
+	sep := l.input[l.tokStart]
 	return l.scanQuoted(sep, QuoteModeString, TEXT_STRING)
 }
 
 // handleQuotedIdent handles MY_LEX_USER_VARIABLE_DELIMITER state - backtick/double-quoted identifiers.
 // Uses the unified scanQuoted with identifier mode (no backslash escapes).
-func (l *Lexer) handleQuotedIdent(sep byte) lexResult {
+func (l *Lexer) handleQuotedIdent() lexResult {
+	sep := l.input[l.tokStart]
 	return l.scanQuoted(sep, QuoteModeIdentifier, IDENT_QUOTED)
 }
 

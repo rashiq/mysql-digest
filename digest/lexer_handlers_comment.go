@@ -6,7 +6,8 @@ package digest
 
 // handleLongComment handles MY_LEX_LONG_COMMENT state - C-style comments, version comments, and hints.
 // This is the coordinator function that delegates to specific handlers.
-func (l *Lexer) handleLongComment(c byte) lexResult {
+func (l *Lexer) handleLongComment() lexResult {
+	c := l.input[l.tokStart]
 	if l.peek() != '*' {
 		// Not a comment, just a '/' character (division operator)
 		return l.handleDivisionOp(c)

@@ -11,7 +11,7 @@ func (l *Lexer) lexHintToken() Token {
 
 	// Skip whitespace
 	l.skipHintWhitespace()
-	l.restartToken()
+	l.startToken()
 
 	// Check for end of hint comment */
 	if l.peek() == '*' && l.peekN(1) == '/' {
@@ -73,9 +73,9 @@ func (l *Lexer) lexHintIdentOrKeyword() Token {
 	}
 	length := l.tokenLen()
 
-	// Check if it's a hint keyword using injected resolver
+	// Check if it's a hint keyword
 	text := l.input[l.tokStart : l.tokStart+length]
-	if tok, ok := l.keywordResolver.ResolveHint(text); ok {
+	if tok, ok := HintKeywords[toUpper(text)]; ok {
 		return l.returnToken(Token{Type: tok, Start: l.tokStart, End: l.pos})
 	}
 

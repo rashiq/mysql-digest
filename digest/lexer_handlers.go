@@ -4,14 +4,12 @@ package digest
 // These extract complex state handling logic from the main Lex() switch statement.
 
 // lexResult represents the result of a state handler.
-// It wraps a Token with information about whether to return or continue.
 type lexResult struct {
 	token        Token
 	done         bool     // If true, return the token. If false, continue with nextState.
-	nextState    LexState // State to transition to if not done (current Lex() loop)
+	nextState    LexState // State to transition to if not done
 	setNextLex   bool     // If true, set l.nextState to nextLexState
-	nextLexState LexState // State for the NEXT Lex() call (persists across calls)
-	startChar    byte     // First char of token (set by dispatchStart for use by subsequent handlers)
+	nextLexState LexState // State for the NEXT Lex() call
 }
 
 // done creates a lexResult that returns a token.
@@ -30,9 +28,8 @@ func cont(state LexState) lexResult {
 }
 
 // handleChar handles MY_LEX_CHAR state - single character tokens and special sequences.
-// Note: This handler reads the character from l.tokStart rather than using the c parameter,
-// making it self-contained and eliminating special cases in the dispatch loop.
-func (l *Lexer) handleChar(_ byte) lexResult {
+// Reads the character from l.tokStart making it self-contained.
+func (l *Lexer) handleChar() lexResult {
 	// Get the character at token start (this is the character we're tokenizing)
 	if l.tokStart >= len(l.input) {
 		return done(Token{Type: END_OF_INPUT, Start: l.tokStart, End: l.pos})
@@ -126,7 +123,7 @@ func (l *Lexer) handleIdentStart() lexResult {
 
 // handleCmpOp handles MY_LEX_CMP_OP state - comparison operators >, >=, =, !=.
 func (l *Lexer) handleCmpOp() lexResult {
-	nextState := l.stateMapper.GetState(l.peek())
+	nextState := getStateMap(l.peek())
 	if nextState == MY_LEX_CMP_OP || nextState == MY_LEX_LONG_CMP_OP {
 		l.skip()
 	}
@@ -139,10 +136,10 @@ func (l *Lexer) handleCmpOp() lexResult {
 
 // handleLongCmpOp handles MY_LEX_LONG_CMP_OP state - operators like <, <=, <>, <=>.
 func (l *Lexer) handleLongCmpOp() lexResult {
-	nextState := l.stateMapper.GetState(l.peek())
+	nextState := getStateMap(l.peek())
 	if nextState == MY_LEX_CMP_OP || nextState == MY_LEX_LONG_CMP_OP {
 		l.skip()
-		if l.stateMapper.GetState(l.peek()) == MY_LEX_CMP_OP {
+		if getStateMap(l.peek()) == MY_LEX_CMP_OP {
 			l.skip()
 		}
 	}
@@ -154,7 +151,8 @@ func (l *Lexer) handleLongCmpOp() lexResult {
 }
 
 // handleBool handles MY_LEX_BOOL state - && and || operators.
-func (l *Lexer) handleBool(c byte) lexResult {
+func (l *Lexer) handleBool() lexResult {
+	c := l.input[l.tokStart]
 	if l.peek() != c {
 		return done(Token{Type: int(c), Start: l.tokStart, End: l.pos})
 	}
@@ -166,7 +164,8 @@ func (l *Lexer) handleBool(c byte) lexResult {
 }
 
 // handleSetVar handles MY_LEX_SET_VAR state - := operator.
-func (l *Lexer) handleSetVar(c byte) lexResult {
+func (l *Lexer) handleSetVar() lexResult {
+	c := l.input[l.tokStart]
 	if l.peek() != '=' {
 		return done(Token{Type: int(c), Start: l.tokStart, End: l.pos})
 	}

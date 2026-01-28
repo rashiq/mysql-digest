@@ -5,7 +5,8 @@ package digest
 
 // handleNumberIdent handles MY_LEX_NUMBER_IDENT state - numbers or identifiers starting with digit.
 // This is a coordinator that dispatches to specialized handlers based on the prefix.
-func (l *Lexer) handleNumberIdent(c byte) lexResult {
+func (l *Lexer) handleNumberIdent() lexResult {
+	c := l.input[l.tokStart]
 	// Check for 0x (hex) or 0b (binary) prefix
 	if c == '0' {
 		nextC := l.advance()
