@@ -1,6 +1,7 @@
 package digest
 
 import (
+	"crypto/md5"
 	"crypto/sha256"
 	"encoding/hex"
 	"strings"
@@ -18,13 +19,15 @@ type storedToken struct {
 type tokenStore struct {
 	tokens     []storedToken
 	tokenArray []byte
+	version    MySQLVersion
 }
 
 // newTokenStore creates a new token store with pre-allocated capacity.
-func newTokenStore() *tokenStore {
+func newTokenStore(version MySQLVersion) *tokenStore {
 	return &tokenStore{
 		tokens:     make([]storedToken, 0, 256),
 		tokenArray: make([]byte, 0, 1024),
+		version:    version,
 	}
 }
 
@@ -32,9 +35,10 @@ func newTokenStore() *tokenStore {
 // Binary format: 2 bytes (little-endian token type).
 func (s *tokenStore) push(tokType int) {
 	s.tokens = append(s.tokens, storedToken{tokType: tokType})
+	binTok := s.translateToken(tokType)
 	s.tokenArray = append(s.tokenArray,
-		byte(tokType&0xff),
-		byte((tokType>>8)&0xff))
+		byte(binTok&0xff),
+		byte((binTok>>8)&0xff))
 }
 
 // pushIdent adds an identifier token with its text to both stores.
@@ -42,9 +46,10 @@ func (s *tokenStore) push(tokType int) {
 func (s *tokenStore) pushIdent(text string) {
 	s.tokens = append(s.tokens, storedToken{tokType: TOK_IDENT, text: text})
 
+	binTok := s.translateToken(TOK_IDENT)
 	s.tokenArray = append(s.tokenArray,
-		byte(TOK_IDENT&0xff),
-		byte((TOK_IDENT>>8)&0xff),
+		byte(binTok&0xff),
+		byte((binTok>>8)&0xff),
 		byte(len(text)&0xff),
 		byte((len(text)>>8)&0xff))
 	s.tokenArray = append(s.tokenArray, text...)
@@ -97,8 +102,27 @@ func (s *tokenStore) len() int {
 	return len(s.tokens)
 }
 
-// computeHash returns the SHA-256 hash of the binary token array as a hex string.
+// translateToken converts a MySQL 8.0 token ID to the appropriate version.
+// For MySQL 5.7, it uses the mysql57TokenID mapping.
+// For MySQL 8.0, it returns the token unchanged.
+func (s *tokenStore) translateToken(tokType int) int {
+	if s.version == MySQL57 {
+		if mapped, ok := mysql57TokenID[tokType]; ok {
+			return mapped
+		}
+		// Token not found in mapping, use TOK_UNUSED equivalent
+		return m57TOK_UNUSED
+	}
+	return tokType
+}
+
+// computeHash returns the hash of the binary token array as a hex string.
+// Uses SHA-256 for MySQL 8.0 (default) or MD5 for MySQL 5.7.
 func (s *tokenStore) computeHash() string {
+	if s.version == MySQL57 {
+		hash := md5.Sum(s.tokenArray)
+		return hex.EncodeToString(hash[:])
+	}
 	hash := sha256.Sum256(s.tokenArray)
 	return hex.EncodeToString(hash[:])
 }

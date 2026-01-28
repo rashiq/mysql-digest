@@ -6,13 +6,22 @@ package digest
 // StateHandler is the signature for all state handler functions.
 type StateHandler func(l *Lexer) lexResult
 
-// stateHandlers maps lexer states to their handler functions.
-var stateHandlers = make(map[LexState]StateHandler)
+// maxLexState is the number of lexer states (highest state value + 1).
+// MY_LEX_STRING_OR_DELIMITER = 32, so we need 33 slots.
+const maxLexState = int(MY_LEX_STRING_OR_DELIMITER) + 1
 
-// dispatchState looks up and executes a handler for the given state.
+// stateHandlers is a fixed-size array mapping states to handlers.
+// Array indexing is O(1) with no hash overhead, unlike map lookups.
+var stateHandlers [maxLexState]StateHandler
+
+// dispatchState executes the handler for the given state.
+// Uses direct array indexing for efficiency.
 func (l *Lexer) dispatchState(state LexState) (lexResult, bool) {
-	if handler, ok := stateHandlers[state]; ok {
-		return handler(l), true
+	idx := int(state)
+	if idx >= 0 && idx < maxLexState {
+		if handler := stateHandlers[idx]; handler != nil {
+			return handler(l), true
+		}
 	}
 	return lexResult{}, false
 }
@@ -59,73 +68,4 @@ func init() {
 
 	// Comments
 	stateHandlers[MY_LEX_LONG_COMMENT] = (*Lexer).handleLongComment
-}
-
-// ---- Core state handlers ----
-
-func (l *Lexer) handleStart() lexResult {
-	for getStateMap(l.peek()) == MY_LEX_SKIP {
-		l.skip()
-	}
-	l.startToken()
-	c := l.advance()
-	return cont(getStateMap(c))
-}
-
-func (l *Lexer) handleSkip() lexResult {
-	l.skip()
-	return cont(MY_LEX_START)
-}
-
-func (l *Lexer) handleEOL() lexResult {
-	return done(Token{Type: END_OF_INPUT, Start: l.tokStart, End: l.pos})
-}
-
-func (l *Lexer) handleLineComment() lexResult {
-	l.scanLineComment()
-	return cont(MY_LEX_START)
-}
-
-func (l *Lexer) handleCharToken() lexResult {
-	c := l.input[l.tokStart]
-	return done(Token{Type: int(c), Start: l.tokStart, End: l.pos})
-}
-
-// ---- Branching handlers ----
-
-func (l *Lexer) handleIdentOrHex() lexResult {
-	if l.peek() == '\'' {
-		return cont(MY_LEX_HEX_NUMBER)
-	}
-	return cont(MY_LEX_IDENT)
-}
-
-func (l *Lexer) handleIdentOrBin() lexResult {
-	if l.peek() == '\'' {
-		return cont(MY_LEX_BIN_NUMBER)
-	}
-	return cont(MY_LEX_IDENT)
-}
-
-func (l *Lexer) handleIntOrReal() lexResult {
-	if l.peek() != '.' {
-		return done(Token{Type: l.intToken(l.tokenLen()), Start: l.tokStart, End: l.pos})
-	}
-	l.skip()
-	return cont(MY_LEX_REAL)
-}
-
-func (l *Lexer) handleRealOrPoint() lexResult {
-	if isDigit(l.peek()) {
-		return cont(MY_LEX_REAL)
-	}
-	c := l.input[l.tokStart]
-	return done(Token{Type: int(c), Start: l.tokStart, End: l.pos})
-}
-
-func (l *Lexer) handleStringOrDelimiter() lexResult {
-	if (l.sqlMode & MODE_ANSI_QUOTES) != 0 {
-		return cont(MY_LEX_USER_VARIABLE_DELIMITER)
-	}
-	return cont(MY_LEX_STRING)
 }

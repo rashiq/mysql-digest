@@ -1,5 +1,41 @@
 package digest
 
+import "fmt"
+
+// ---- Lexer Errors ----
+
+// LexError represents an error encountered during lexical analysis.
+type LexError struct {
+	Position int
+	Message  string
+	Input    string
+}
+
+func (e *LexError) Error() string {
+	if e.Input != "" {
+		return fmt.Sprintf("lex error at position %d: %s (near %q)", e.Position, e.Message, e.Input)
+	}
+	return fmt.Sprintf("lex error at position %d: %s", e.Position, e.Message)
+}
+
+// Error message constants
+const (
+	ErrUnterminatedString   = "unterminated string literal"
+	ErrUnterminatedComment  = "unterminated block comment"
+	ErrUnterminatedIdent    = "unterminated quoted identifier"
+	ErrUnterminatedHint     = "unterminated optimizer hint"
+	ErrInvalidHexLiteral    = "invalid hex literal"
+	ErrInvalidBinaryLiteral = "invalid binary literal"
+	ErrInvalidTokenBounds   = "invalid token bounds"
+	ErrUnterminatedDollar   = "unterminated dollar-quoted string"
+)
+
+func NewLexError(position int, message string, input string) *LexError {
+	return &LexError{Position: position, Message: message, Input: input}
+}
+
+// ---- SQL Mode ----
+
 // SQLMode flags that affect lexer behavior
 type SQLMode uint64
 
@@ -28,15 +64,16 @@ func (t Token) IsError() bool {
 // Lexer tokenizes MySQL SQL statements.
 // It replicates the behavior of MySQL's lex_one_token() from sql/sql_lex.cc.
 type Lexer struct {
-	input           string   // Original SQL input
-	pos             int      // Current position in input
-	tokStart        int      // Start position of current token
-	nextState       LexState // State for next Lex() call
-	sqlMode         SQLMode  // SQL mode flags
-	stmtPrepareMode bool     // Whether we're in prepared statement mode
-	inHintComment   bool     // Whether we're parsing inside a hint comment /*+ ... */
-	lastToken       int      // Last token returned (for hint detection)
-	mysqlVersion    int      // Target MySQL version for version comments
+	input           string       // Original SQL input
+	pos             int          // Current position in input
+	tokStart        int          // Start position of current token
+	nextState       LexState     // State for next Lex() call
+	sqlMode         SQLMode      // SQL mode flags
+	stmtPrepareMode bool         // Whether we're in prepared statement mode
+	inHintComment   bool         // Whether we're parsing inside a hint comment /*+ ... */
+	lastToken       int          // Last token returned (for hint detection)
+	mysqlVersion    int          // Target MySQL version for version comments
+	digestVersion   MySQLVersion // Target digest version (MySQL57 or MySQL80)
 }
 
 // DefaultMySQLVersion is the default MySQL version (8.4.0).
@@ -54,6 +91,12 @@ func NewLexer(input string) *Lexer {
 // SetSQLMode configures SQL mode flags.
 func (l *Lexer) SetSQLMode(mode SQLMode) {
 	l.sqlMode = mode
+}
+
+// SetDigestVersion sets the MySQL digest version for keyword lookup.
+// In MySQL57 mode, keywords that don't exist in MySQL 5.7 are treated as identifiers.
+func (l *Lexer) SetDigestVersion(version MySQLVersion) {
+	l.digestVersion = version
 }
 
 // SetPrepareMode sets whether the lexer is in prepared statement mode.
@@ -139,12 +182,20 @@ func (l *Lexer) eof() bool {
 // findKeyword looks up a keyword in the keyword map.
 // If the identifier is a keyword, returns the token type.
 // Returns 0 if not a keyword.
+// In MySQL57 mode, returns 0 for keywords that don't exist in MySQL 5.7.
 func (l *Lexer) findKeyword(length int) int {
 	if length == 0 {
 		return 0
 	}
 	text := l.input[l.tokStart : l.tokStart+length]
 	if tok, ok := TokenKeywords[toUpper(text)]; ok {
+		// In MySQL 5.7 mode, check if this keyword exists in MySQL 5.7
+		if l.digestVersion == MySQL57 {
+			if mapped, exists := mysql57TokenID[tok]; !exists || mapped == m57TOK_UNUSED {
+				// This keyword doesn't exist in MySQL 5.7, treat as identifier
+				return 0
+			}
+		}
 		return tok
 	}
 	return 0
@@ -162,19 +213,6 @@ func (l *Lexer) returnToken(t Token) Token {
 func (l *Lexer) intToken(length int) int {
 	str := l.input[l.tokStart : l.tokStart+length]
 	return ClassifyInteger(str)
-}
-
-// consumeComment consumes a C-style comment until closing */.
-// Returns true if comment was properly closed, false if EOF reached.
-func (l *Lexer) consumeComment() bool {
-	for !l.eof() {
-		c := l.advance()
-		if c == '*' && l.peek() == '/' {
-			l.skip() // Skip the '/'
-			return true
-		}
-	}
-	return false // Unclosed comment
 }
 
 // Lex returns the next token from the input.

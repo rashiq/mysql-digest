@@ -114,7 +114,13 @@ func (r *reducer) reduceRowList() bool {
 
 // reduceInClause handles: IN ROW → IN (...)
 // Collapses IN clauses to a single normalized form.
+// Note: This is MySQL 8.0+ only. MySQL 5.7 doesn't have TOK_IN_GENERIC_VALUE_EXPRESSION.
 func (r *reducer) reduceInClause() bool {
+	// Skip this reduction for MySQL 5.7 - it doesn't have TOK_IN_GENERIC_VALUE_EXPRESSION
+	if r.store.version == MySQL57 {
+		return false
+	}
+
 	if r.store.len() < 2 {
 		return false
 	}

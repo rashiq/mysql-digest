@@ -11,6 +11,16 @@ type Digest struct {
 	Text string
 }
 
+// MySQLVersion specifies which MySQL version's digest algorithm to use.
+type MySQLVersion int
+
+const (
+	// MySQL80 uses SHA-256 hashing (64 hex chars). This is the default.
+	MySQL80 MySQLVersion = iota
+	// MySQL57 uses MD5 hashing (32 hex chars).
+	MySQL57
+)
+
 // Options controls digest computation behavior.
 type Options struct {
 	// SQLMode affects lexer behavior (ANSI_QUOTES, NO_BACKSLASH_ESCAPES).
@@ -19,6 +29,10 @@ type Options struct {
 	// MaxLength limits the digest text length (0 = unlimited).
 	// If exceeded, the text is truncated with "..." appended.
 	MaxLength int
+
+	// Version specifies which MySQL version's digest algorithm to use.
+	// Defaults to MySQL80 (SHA-256). Use MySQL57 for MD5 hashing.
+	Version MySQLVersion
 }
 
 // Normalize computes the digest of a SQL statement.
@@ -40,8 +54,9 @@ func Normalize(sql string, opts ...Options) Digest {
 
 	lexer := NewLexer(sql)
 	lexer.SetSQLMode(opt.SQLMode)
+	lexer.SetDigestVersion(opt.Version)
 
-	store := newTokenStore()
+	store := newTokenStore(opt.Version)
 	reducer := newReducer(store)
 	handler := newTokenHandler(lexer, store, reducer)
 

@@ -485,3 +485,68 @@ func TestDigest_OptimizerHints(t *testing.T) {
 		})
 	}
 }
+
+// Benchmarks for performance testing
+
+func BenchmarkCompute_Simple(b *testing.B) {
+	sql := "SELECT * FROM users WHERE id = 1"
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		Compute(sql)
+	}
+}
+
+func BenchmarkCompute_Medium(b *testing.B) {
+	sql := "SELECT u.id, u.name, o.total FROM users u JOIN orders o ON u.id = o.user_id WHERE o.status = 'active' AND o.total > 100 ORDER BY o.created_at DESC LIMIT 10"
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		Compute(sql)
+	}
+}
+
+func BenchmarkCompute_Complex(b *testing.B) {
+	sql := `SELECT u.id, u.name, COUNT(o.id) as order_count, SUM(o.total) as total_spent 
+		FROM users u 
+		LEFT JOIN orders o ON u.id = o.user_id 
+		WHERE u.created_at > '2024-01-01' 
+			AND u.status IN ('active', 'premium', 'vip') 
+			AND (o.status = 'completed' OR o.status IS NULL)
+		GROUP BY u.id, u.name 
+		HAVING COUNT(o.id) > 5 
+		ORDER BY total_spent DESC 
+		LIMIT 100 OFFSET 0`
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		Compute(sql)
+	}
+}
+
+func BenchmarkCompute_LargeIN(b *testing.B) {
+	sql := "SELECT * FROM users WHERE id IN (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30)"
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		Compute(sql)
+	}
+}
+
+func BenchmarkCompute_Insert(b *testing.B) {
+	sql := "INSERT INTO users (name, email, age, status) VALUES ('John', 'john@example.com', 25, 'active'), ('Jane', 'jane@example.com', 30, 'active'), ('Bob', 'bob@example.com', 35, 'inactive')"
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		Compute(sql)
+	}
+}
+
+func BenchmarkLexer_Tokens(b *testing.B) {
+	sql := "SELECT u.id, u.name, o.total FROM users u JOIN orders o ON u.id = o.user_id WHERE o.status = 'active'"
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		lexer := NewLexer(sql)
+		for {
+			tok := lexer.Lex()
+			if tok.Type == END_OF_INPUT || tok.Type == ABORT_SYM {
+				break
+			}
+		}
+	}
+}
