@@ -36,18 +36,16 @@ type Lexer struct {
 	stmtPrepareMode bool     // Whether we're in prepared statement mode
 	inHintComment   bool     // Whether we're parsing inside a hint comment /*+ ... */
 	lastToken       int      // Last token returned (for hint detection)
+
+	// Injected dependencies (set via NewLexerWithConfig or defaults)
+	keywordResolver KeywordResolver // Resolves identifiers to keywords
+	stateMapper     StateMapper     // Maps characters to initial states
+	mysqlVersion    int             // Target MySQL version for version comments
 }
 
-// NewLexer creates a new lexer for the given input.
+// NewLexer creates a new lexer for the given input with default configuration.
 func NewLexer(input string) *Lexer {
-	return &Lexer{
-		input:           input,
-		pos:             0,
-		tokStart:        0,
-		nextState:       MY_LEX_START,
-		sqlMode:         0,
-		stmtPrepareMode: false,
-	}
+	return NewLexerWithConfig(input, DefaultConfig())
 }
 
 // SetSQLMode configures SQL mode flags.
@@ -142,17 +140,16 @@ func (l *Lexer) eof() bool {
 
 // findKeyword looks up a keyword in the keyword map.
 // If the identifier is a keyword, returns the token type.
-// If function is true, also checks function keywords.
 // Returns 0 if not a keyword.
-func (l *Lexer) findKeyword(length int, isFunction bool) int {
+func (l *Lexer) findKeyword(length int) int {
 	if length == 0 {
 		return 0
 	}
-	// Get the token text and convert to uppercase for lookup
+	// Get the token text
 	text := l.input[l.tokStart : l.tokStart+length]
-	upper := toUpper(text)
 
-	if tok, ok := TokenKeywords[upper]; ok {
+	// Use injected resolver
+	if tok, ok := l.keywordResolver.Resolve(text); ok {
 		return tok
 	}
 	return 0
@@ -212,193 +209,27 @@ func (l *Lexer) Lex() Token {
 	var c byte
 
 	for {
-		switch state {
-		case MY_LEX_START:
-			// Skip leading whitespace
-			for getStateMap(l.peek()) == MY_LEX_SKIP {
-				l.skip()
+		// Dispatch to handler for current state
+		result, handled := l.dispatchState(state, c)
+		if !handled {
+			// Unhandled state - return character as token (fallback)
+			if l.tokStart < len(l.input) {
+				c = l.input[l.tokStart]
 			}
-			// Start of real token
-			l.restartToken()
-			c = l.advance()
-			state = getStateMap(c)
-
-		case MY_LEX_SKIP:
-			l.skip()
-			state = MY_LEX_START
-
-		case MY_LEX_EOL:
-			return Token{Type: END_OF_INPUT, Start: l.tokStart, End: l.pos}
-
-		case MY_LEX_CHAR:
-			result := l.handleChar(c)
-			if tok := l.applyResult(result); tok != nil {
-				return *tok
-			}
-			state = result.nextState
-
-		case MY_LEX_COMMENT:
-			l.scanLineComment()
-			state = MY_LEX_START
-
-		case MY_LEX_IDENT_OR_NCHAR:
-			result := l.handleNChar()
-			if tok := l.applyResult(result); tok != nil {
-				return *tok
-			}
-			state = result.nextState
-
-		case MY_LEX_IDENT_OR_HEX:
-			if l.peek() == '\'' {
-				state = MY_LEX_HEX_NUMBER
-			} else {
-				state = MY_LEX_IDENT
-			}
-
-		case MY_LEX_IDENT_OR_BIN:
-			if l.peek() == '\'' {
-				state = MY_LEX_BIN_NUMBER
-			} else {
-				state = MY_LEX_IDENT
-			}
-
-		case MY_LEX_HEX_NUMBER:
-			result := l.handleHexNumber()
-			if tok := l.applyResult(result); tok != nil {
-				return *tok
-			}
-			state = result.nextState
-
-		case MY_LEX_BIN_NUMBER:
-			result := l.handleBinNumber()
-			if tok := l.applyResult(result); tok != nil {
-				return *tok
-			}
-			state = result.nextState
-
-		case MY_LEX_IDENT_OR_DOLLAR_QUOTED_TEXT:
-			result := l.handleDollarQuoted()
-			if tok := l.applyResult(result); tok != nil {
-				return *tok
-			}
-			state = result.nextState
-
-		case MY_LEX_IDENT:
-			result := l.handleIdent()
-			if tok := l.applyResult(result); tok != nil {
-				return *tok
-			}
-			state = result.nextState
-
-		case MY_LEX_IDENT_SEP:
-			result := l.handleIdentSep()
-			if tok := l.applyResult(result); tok != nil {
-				return *tok
-			}
-			state = result.nextState
-
-		case MY_LEX_IDENT_START:
-			result := l.handleIdentStart()
-			if tok := l.applyResult(result); tok != nil {
-				return *tok
-			}
-			state = result.nextState
-
-		case MY_LEX_NUMBER_IDENT:
-			result := l.handleNumberIdent(c)
-			if tok := l.applyResult(result); tok != nil {
-				return *tok
-			}
-			state = result.nextState
-
-		case MY_LEX_INT_OR_REAL:
-			if l.peek() != '.' {
-				length := l.tokenLen()
-				return Token{Type: l.intToken(length), Start: l.tokStart, End: l.pos}
-			}
-			l.skip()
-			state = MY_LEX_REAL
-
-		case MY_LEX_REAL:
-			result := l.handleReal()
-			if tok := l.applyResult(result); tok != nil {
-				return *tok
-			}
-			state = result.nextState
-
-		case MY_LEX_REAL_OR_POINT:
-			if isDigit(l.peek()) {
-				state = MY_LEX_REAL
-			} else {
-				return Token{Type: int(c), Start: l.tokStart, End: l.pos}
-			}
-
-		case MY_LEX_STRING:
-			result := l.handleString(c)
-			if tok := l.applyResult(result); tok != nil {
-				return *tok
-			}
-			return result.token
-
-		case MY_LEX_STRING_OR_DELIMITER:
-			if (l.sqlMode & MODE_ANSI_QUOTES) != 0 {
-				state = MY_LEX_USER_VARIABLE_DELIMITER
-			} else {
-				state = MY_LEX_STRING
-			}
-
-		case MY_LEX_USER_VARIABLE_DELIMITER:
-			result := l.handleQuotedIdent(c)
-			if tok := l.applyResult(result); tok != nil {
-				return *tok
-			}
-			return result.token
-
-		case MY_LEX_LONG_COMMENT:
-			result := l.handleLongComment(c)
-			if tok := l.applyResult(result); tok != nil {
-				return *tok
-			}
-			state = result.nextState
-
-		case MY_LEX_END_LONG_COMMENT:
 			return Token{Type: int(c), Start: l.tokStart, End: l.pos}
+		}
 
-		case MY_LEX_CMP_OP:
-			result := l.handleCmpOp()
-			if tok := l.applyResult(result); tok != nil {
-				return *tok
-			}
-			state = result.nextState
-			c = l.input[l.tokStart] // Restore c for MY_LEX_CHAR fallback
+		// Apply result: set nextState if needed, return token if done
+		if tok := l.applyResult(result); tok != nil {
+			return *tok
+		}
 
-		case MY_LEX_LONG_CMP_OP:
-			result := l.handleLongCmpOp()
-			if tok := l.applyResult(result); tok != nil {
-				return *tok
-			}
-			state = result.nextState
-			c = l.input[l.tokStart]
+		// Continue to next state
+		state = result.nextState
 
-		case MY_LEX_BOOL:
-			result := l.handleBool(c)
-			if tok := l.applyResult(result); tok != nil {
-				return *tok
-			}
-			return result.token
-
-		case MY_LEX_SET_VAR:
-			result := l.handleSetVar(c)
-			if tok := l.applyResult(result); tok != nil {
-				return *tok
-			}
-			return result.token
-
-		case MY_LEX_SEMICOLON:
-			return Token{Type: int(c), Start: l.tokStart, End: l.pos}
-
-		default:
-			return Token{Type: int(c), Start: l.tokStart, End: l.pos}
+		// Update c if startChar was set (from dispatchStart)
+		if result.startChar != 0 {
+			c = result.startChar
 		}
 	}
 }

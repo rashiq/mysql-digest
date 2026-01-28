@@ -64,9 +64,8 @@ func (l *Lexer) handleVersionComment() lexResult {
 		// Skip the version digits
 		l.skipN(digitCount)
 
-		// Check if version is <= current MySQL version (8.4.0 = 80400)
-		const currentVersion = 80400
-		if version <= currentVersion {
+		// Check if version is <= configured MySQL version
+		if version <= l.mysqlVersion {
 			// Execute the content as code - restart lexing
 			return cont(MY_LEX_START)
 		}

@@ -73,10 +73,9 @@ func (l *Lexer) lexHintIdentOrKeyword() Token {
 	}
 	length := l.tokenLen()
 
-	// Check if it's a hint keyword
+	// Check if it's a hint keyword using injected resolver
 	text := l.input[l.tokStart : l.tokStart+length]
-	upper := toUpper(text)
-	if tok, ok := HintKeywords[upper]; ok {
+	if tok, ok := l.keywordResolver.ResolveHint(text); ok {
 		return l.returnToken(Token{Type: tok, Start: l.tokStart, End: l.pos})
 	}
 

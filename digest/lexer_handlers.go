@@ -11,6 +11,7 @@ type lexResult struct {
 	nextState    LexState // State to transition to if not done (current Lex() loop)
 	setNextLex   bool     // If true, set l.nextState to nextLexState
 	nextLexState LexState // State for the NEXT Lex() call (persists across calls)
+	startChar    byte     // First char of token (set by dispatchStart for use by subsequent handlers)
 }
 
 // done creates a lexResult that returns a token.
@@ -29,7 +30,15 @@ func cont(state LexState) lexResult {
 }
 
 // handleChar handles MY_LEX_CHAR state - single character tokens and special sequences.
-func (l *Lexer) handleChar(c byte) lexResult {
+// Note: This handler reads the character from l.tokStart rather than using the c parameter,
+// making it self-contained and eliminating special cases in the dispatch loop.
+func (l *Lexer) handleChar(_ byte) lexResult {
+	// Get the character at token start (this is the character we're tokenizing)
+	if l.tokStart >= len(l.input) {
+		return done(Token{Type: END_OF_INPUT, Start: l.tokStart, End: l.pos})
+	}
+	c := l.input[l.tokStart]
+
 	// Check for special two-char sequences with '-'
 	if c == '-' && l.peek() == '-' {
 		// Check for "-- " comment (-- followed by space or control char)
@@ -75,7 +84,7 @@ func (l *Lexer) handleIdent() lexResult {
 	// Check if followed by '.' and identifier char
 	if l.peek() == '.' && isIdentChar(l.peekN(1)) {
 		// Still do keyword lookup for system variable scopes
-		if tokval := l.findKeyword(length, false); tokval != 0 {
+		if tokval := l.findKeyword(length); tokval != 0 {
 			return doneWithNext(l.returnToken(Token{Type: tokval, Start: l.tokStart, End: l.tokStart + length}), MY_LEX_IDENT_SEP)
 		}
 		return doneWithNext(l.returnToken(Token{Type: IDENT, Start: l.tokStart, End: l.tokStart + length}), MY_LEX_IDENT_SEP)
@@ -84,8 +93,7 @@ func (l *Lexer) handleIdent() lexResult {
 	l.backup() // Unget the non-ident char
 
 	// Check if it's a keyword
-	nextChar := l.peekN(1)
-	if tokval := l.findKeyword(length, nextChar == '('); tokval != 0 {
+	if tokval := l.findKeyword(length); tokval != 0 {
 		l.skip() // Re-skip the character we ungot
 		return doneWithNext(l.returnToken(Token{Type: tokval, Start: l.tokStart, End: l.tokStart + length}), MY_LEX_START)
 	}
@@ -118,12 +126,12 @@ func (l *Lexer) handleIdentStart() lexResult {
 
 // handleCmpOp handles MY_LEX_CMP_OP state - comparison operators >, >=, =, !=.
 func (l *Lexer) handleCmpOp() lexResult {
-	nextState := getStateMap(l.peek())
+	nextState := l.stateMapper.GetState(l.peek())
 	if nextState == MY_LEX_CMP_OP || nextState == MY_LEX_LONG_CMP_OP {
 		l.skip()
 	}
 	length := l.tokenLen()
-	if tokval := l.findKeyword(length, false); tokval != 0 {
+	if tokval := l.findKeyword(length); tokval != 0 {
 		return doneWithNext(Token{Type: tokval, Start: l.tokStart, End: l.pos}, MY_LEX_START)
 	}
 	return cont(MY_LEX_CHAR)
@@ -131,15 +139,15 @@ func (l *Lexer) handleCmpOp() lexResult {
 
 // handleLongCmpOp handles MY_LEX_LONG_CMP_OP state - operators like <, <=, <>, <=>.
 func (l *Lexer) handleLongCmpOp() lexResult {
-	nextState := getStateMap(l.peek())
+	nextState := l.stateMapper.GetState(l.peek())
 	if nextState == MY_LEX_CMP_OP || nextState == MY_LEX_LONG_CMP_OP {
 		l.skip()
-		if getStateMap(l.peek()) == MY_LEX_CMP_OP {
+		if l.stateMapper.GetState(l.peek()) == MY_LEX_CMP_OP {
 			l.skip()
 		}
 	}
 	length := l.tokenLen()
-	if tokval := l.findKeyword(length, false); tokval != 0 {
+	if tokval := l.findKeyword(length); tokval != 0 {
 		return doneWithNext(Token{Type: tokval, Start: l.tokStart, End: l.pos}, MY_LEX_START)
 	}
 	return cont(MY_LEX_CHAR)
@@ -151,7 +159,7 @@ func (l *Lexer) handleBool(c byte) lexResult {
 		return done(Token{Type: int(c), Start: l.tokStart, End: l.pos})
 	}
 	l.skip()
-	if tokval := l.findKeyword(2, false); tokval != 0 {
+	if tokval := l.findKeyword(2); tokval != 0 {
 		return doneWithNext(Token{Type: tokval, Start: l.tokStart, End: l.pos}, MY_LEX_START)
 	}
 	return done(Token{Type: int(c), Start: l.tokStart, End: l.pos})
