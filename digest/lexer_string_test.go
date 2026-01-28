@@ -30,7 +30,7 @@ func TestLexer_STRING_SingleQuote_Valid(t *testing.T) {
 			if tok.Type != TEXT_STRING {
 				t.Errorf("expected TEXT_STRING (%d), got %d", TEXT_STRING, tok.Type)
 			}
-			if got := l.TokenText(tok); got != tt.text {
+			if got := l.MustTokenText(tok); got != tt.text {
 				t.Errorf("expected text %q, got %q", tt.text, got)
 			}
 		})
@@ -57,7 +57,7 @@ func TestLexer_STRING_EscapedQuote(t *testing.T) {
 			if tok.Type != TEXT_STRING {
 				t.Errorf("expected TEXT_STRING (%d), got %d", TEXT_STRING, tok.Type)
 			}
-			if got := l.TokenText(tok); got != tt.text {
+			if got := l.MustTokenText(tok); got != tt.text {
 				t.Errorf("expected text %q, got %q", tt.text, got)
 			}
 		})
@@ -85,7 +85,7 @@ func TestLexer_STRING_BackslashEscape(t *testing.T) {
 			if tok.Type != TEXT_STRING {
 				t.Errorf("expected TEXT_STRING (%d), got %d", TEXT_STRING, tok.Type)
 			}
-			if got := l.TokenText(tok); got != tt.text {
+			if got := l.MustTokenText(tok); got != tt.text {
 				t.Errorf("expected text %q, got %q", tt.text, got)
 			}
 		})
@@ -111,7 +111,7 @@ func TestLexer_STRING_NoBackslashEscapes(t *testing.T) {
 			if tok.Type != TEXT_STRING {
 				t.Errorf("expected TEXT_STRING (%d), got %d", TEXT_STRING, tok.Type)
 			}
-			if got := l.TokenText(tok); got != tt.text {
+			if got := l.MustTokenText(tok); got != tt.text {
 				t.Errorf("expected text %q, got %q", tt.text, got)
 			}
 		})
@@ -163,7 +163,7 @@ func TestLexer_STRING_DoubleQuote_Default(t *testing.T) {
 			if tok.Type != TEXT_STRING {
 				t.Errorf("expected TEXT_STRING (%d), got %d", TEXT_STRING, tok.Type)
 			}
-			if got := l.TokenText(tok); got != tt.text {
+			if got := l.MustTokenText(tok); got != tt.text {
 				t.Errorf("expected text %q, got %q", tt.text, got)
 			}
 		})
@@ -191,7 +191,7 @@ func TestLexer_STRING_DoubleQuote_AnsiQuotes(t *testing.T) {
 			if tok.Type != IDENT_QUOTED {
 				t.Errorf("expected IDENT_QUOTED (%d), got %d", IDENT_QUOTED, tok.Type)
 			}
-			if got := l.TokenText(tok); got != tt.text {
+			if got := l.MustTokenText(tok); got != tt.text {
 				t.Errorf("expected text %q, got %q", tt.text, got)
 			}
 		})
@@ -243,7 +243,7 @@ func TestLexer_STRING_Backtick_Valid(t *testing.T) {
 			if tok.Type != IDENT_QUOTED {
 				t.Errorf("expected IDENT_QUOTED (%d), got %d", IDENT_QUOTED, tok.Type)
 			}
-			if got := l.TokenText(tok); got != tt.text {
+			if got := l.MustTokenText(tok); got != tt.text {
 				t.Errorf("expected text %q, got %q", tt.text, got)
 			}
 		})
@@ -269,7 +269,7 @@ func TestLexer_STRING_Backtick_EscapedBacktick(t *testing.T) {
 			if tok.Type != IDENT_QUOTED {
 				t.Errorf("expected IDENT_QUOTED (%d), got %d", IDENT_QUOTED, tok.Type)
 			}
-			if got := l.TokenText(tok); got != tt.text {
+			if got := l.MustTokenText(tok); got != tt.text {
 				t.Errorf("expected text %q, got %q", tt.text, got)
 			}
 		})
@@ -323,7 +323,7 @@ func TestLexer_STRING_InContext(t *testing.T) {
 		if tok.Type != exp.typ {
 			t.Errorf("token %d: expected type %d, got %d", i, exp.typ, tok.Type)
 		}
-		if got := l.TokenText(tok); got != exp.text {
+		if got := l.MustTokenText(tok); got != exp.text {
 			t.Errorf("token %d: expected text %q, got %q", i, exp.text, got)
 		}
 	}
@@ -348,7 +348,7 @@ func TestLexer_STRING_AnsiQuotesContext(t *testing.T) {
 		if tok.Type != exp.typ {
 			t.Errorf("token %d: expected type %d, got %d", i, exp.typ, tok.Type)
 		}
-		if got := l.TokenText(tok); got != exp.text {
+		if got := l.MustTokenText(tok); got != exp.text {
 			t.Errorf("token %d: expected text %q, got %q", i, exp.text, got)
 		}
 	}
@@ -362,7 +362,7 @@ func TestLexer_STRING_Consecutive(t *testing.T) {
 	if tok.Type != TEXT_STRING {
 		t.Errorf("expected TEXT_STRING, got %d", tok.Type)
 	}
-	if got := l.TokenText(tok); got != "'hello'" {
+	if got := l.MustTokenText(tok); got != "'hello'" {
 		t.Errorf("expected 'hello', got %q", got)
 	}
 
@@ -370,7 +370,7 @@ func TestLexer_STRING_Consecutive(t *testing.T) {
 	if tok.Type != TEXT_STRING {
 		t.Errorf("expected TEXT_STRING, got %d", tok.Type)
 	}
-	if got := l.TokenText(tok); got != "'world'" {
+	if got := l.MustTokenText(tok); got != "'world'" {
 		t.Errorf("expected 'world', got %q", got)
 	}
 }

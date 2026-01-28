@@ -34,7 +34,7 @@ func TestLexer_HEX_NUMBER_Valid(t *testing.T) {
 			if tok.Type != HEX_NUM {
 				t.Errorf("expected HEX_NUM (%d), got %d", HEX_NUM, tok.Type)
 			}
-			if got := l.TokenText(tok); got != tt.text {
+			if got := l.MustTokenText(tok); got != tt.text {
 				t.Errorf("expected text %q, got %q", tt.text, got)
 			}
 		})
@@ -120,7 +120,7 @@ func TestLexer_HEX_NUMBER_InContext(t *testing.T) {
 	if tok.Type != HEX_NUM {
 		t.Errorf("expected HEX_NUM, got %d", tok.Type)
 	}
-	if got := l.TokenText(tok); got != "x'48454C4C4F'" {
+	if got := l.MustTokenText(tok); got != "x'48454C4C4F'" {
 		t.Errorf("expected x'48454C4C4F', got %q", got)
 	}
 }
@@ -153,7 +153,7 @@ func TestLexer_BIN_NUMBER_Valid(t *testing.T) {
 			if tok.Type != BIN_NUM {
 				t.Errorf("expected BIN_NUM (%d), got %d", BIN_NUM, tok.Type)
 			}
-			if got := l.TokenText(tok); got != tt.text {
+			if got := l.MustTokenText(tok); got != tt.text {
 				t.Errorf("expected text %q, got %q", tt.text, got)
 			}
 		})
@@ -217,7 +217,7 @@ func TestLexer_BIN_NUMBER_InContext(t *testing.T) {
 	if tok.Type != BIN_NUM {
 		t.Errorf("expected BIN_NUM, got %d", tok.Type)
 	}
-	if got := l.TokenText(tok); got != "b'10101010'" {
+	if got := l.MustTokenText(tok); got != "b'10101010'" {
 		t.Errorf("expected b'10101010', got %q", got)
 	}
 }
@@ -251,7 +251,7 @@ func TestLexer_HEX_BIN_NotLiteral(t *testing.T) {
 			if tok.Type != tt.firstType {
 				t.Errorf("expected type %d, got %d", tt.firstType, tok.Type)
 			}
-			if got := l.TokenText(tok); got != tt.firstText {
+			if got := l.MustTokenText(tok); got != tt.firstText {
 				t.Errorf("expected text %q, got %q", tt.firstText, got)
 			}
 		})
@@ -278,7 +278,7 @@ func TestLexer_HEX_BIN_Sequence(t *testing.T) {
 		if tok.Type != exp.typ {
 			t.Errorf("token %d: expected type %d, got %d", i, exp.typ, tok.Type)
 		}
-		if got := l.TokenText(tok); got != exp.text {
+		if got := l.MustTokenText(tok); got != exp.text {
 			t.Errorf("token %d: expected text %q, got %q", i, exp.text, got)
 		}
 	}

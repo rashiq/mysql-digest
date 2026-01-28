@@ -164,7 +164,7 @@ func TestLexer_NUMBER_IntegerIdent(t *testing.T) {
 			if tok.Type != IDENT && tok.Type != IDENT_QUOTED {
 				t.Errorf("input %q: expected IDENT, got %d", tc.input, tok.Type)
 			}
-			text := l.TokenText(tok)
+			text := l.MustTokenText(tok)
 			if text != tc.input {
 				t.Errorf("input %q: expected text %q, got %q", tc.input, tc.input, text)
 			}
@@ -218,6 +218,69 @@ func TestLexer_NUMBER_FloatInvalid(t *testing.T) {
 			// Should become IDENT
 			if tok.Type == FLOAT_NUM {
 				t.Errorf("input %q: should not be FLOAT_NUM", tc.input)
+			}
+		})
+	}
+}
+
+// TestLexer_NUMBER_ExponentWithSignButNoDigits tests the edge case where
+// exponent has sign but no digits (e.g., "1e+x"). This was a bug where
+// position wasn't properly restored.
+func TestLexer_NUMBER_ExponentWithSignButNoDigits(t *testing.T) {
+	testCases := []struct {
+		name      string
+		input     string
+		wantType  int
+		wantText  string
+		wantNext  int // Expected next token type
+		wantNext2 string
+	}{
+		{
+			name:      "1e+ followed by ident",
+			input:     "1e+x",
+			wantType:  IDENT,
+			wantText:  "1e",
+			wantNext:  int('+'),
+			wantNext2: "+",
+		},
+		{
+			name:      "1e- followed by ident",
+			input:     "1e-x",
+			wantType:  IDENT,
+			wantText:  "1e",
+			wantNext:  int('-'),
+			wantNext2: "-",
+		},
+		{
+			name:      "decimal with e+ but no digits",
+			input:     "1.5e+x",
+			wantType:  DECIMAL_NUM,
+			wantText:  "1.5",
+			wantNext:  IDENT,
+			wantNext2: "e",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			l := NewLexer(tc.input)
+			tok := l.Lex()
+
+			if tok.Type != tc.wantType {
+				t.Errorf("first token type: got %d (%s), want %d (%s)",
+					tok.Type, TokenString(tok.Type), tc.wantType, TokenString(tc.wantType))
+			}
+
+			text := l.MustTokenText(tok)
+			if text != tc.wantText {
+				t.Errorf("first token text: got %q, want %q", text, tc.wantText)
+			}
+
+			// Check next token to verify position was properly restored
+			tok2 := l.Lex()
+			if tok2.Type != tc.wantNext {
+				t.Errorf("second token type: got %d (%s), want %d (%s)",
+					tok2.Type, TokenString(tok2.Type), tc.wantNext, TokenString(tc.wantNext))
 			}
 		})
 	}

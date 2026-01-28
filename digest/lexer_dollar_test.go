@@ -59,7 +59,7 @@ func TestLexer_Dollar_SimpleString(t *testing.T) {
 				t.Errorf("got token type %d (%s), want %d (%s)",
 					tok.Type, TokenString(tok.Type), tt.wantType, TokenString(tt.wantType))
 			}
-			gotText := l.TokenText(tok)
+			gotText := l.MustTokenText(tok)
 			if gotText != tt.wantText {
 				t.Errorf("got text %q, want %q", gotText, tt.wantText)
 			}
@@ -109,7 +109,7 @@ func TestLexer_Dollar_TaggedString(t *testing.T) {
 				t.Errorf("got token type %d (%s), want %d (%s)",
 					tok.Type, TokenString(tok.Type), tt.wantType, TokenString(tt.wantType))
 			}
-			gotText := l.TokenText(tok)
+			gotText := l.MustTokenText(tok)
 			if gotText != tt.wantText {
 				t.Errorf("got text %q, want %q", gotText, tt.wantText)
 			}
@@ -159,7 +159,7 @@ func TestLexer_Dollar_Identifier(t *testing.T) {
 				t.Errorf("got token type %d (%s), want %d (%s)",
 					tok.Type, TokenString(tok.Type), tt.wantType, TokenString(tt.wantType))
 			}
-			gotText := l.TokenText(tok)
+			gotText := l.MustTokenText(tok)
 			if gotText != tt.wantText {
 				t.Errorf("got text %q, want %q", gotText, tt.wantText)
 			}

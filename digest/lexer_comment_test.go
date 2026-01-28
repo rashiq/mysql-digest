@@ -31,7 +31,7 @@ func TestLexer_COMMENT_DoubleDash(t *testing.T) {
 				t.Errorf("expected type %d, got %d", tt.firstType, tok.Type)
 			}
 			if tt.firstText != "" {
-				if got := l.TokenText(tok); got != tt.firstText {
+				if got := l.MustTokenText(tok); got != tt.firstText {
 					t.Errorf("expected text %q, got %q", tt.firstText, got)
 				}
 			}
@@ -57,7 +57,7 @@ func TestLexer_COMMENT_DoubleDashNoSpace(t *testing.T) {
 	if tok.Type != IDENT {
 		t.Errorf("expected IDENT, got %d", tok.Type)
 	}
-	if got := l.TokenText(tok); got != "x" {
+	if got := l.MustTokenText(tok); got != "x" {
 		t.Errorf("expected 'x', got %q", got)
 	}
 }
@@ -83,7 +83,7 @@ func TestLexer_COMMENT_Hash(t *testing.T) {
 				t.Errorf("expected type %d, got %d", tt.firstType, tok.Type)
 			}
 			if tt.firstText != "" {
-				if got := l.TokenText(tok); got != tt.firstText {
+				if got := l.MustTokenText(tok); got != tt.firstText {
 					t.Errorf("expected text %q, got %q", tt.firstText, got)
 				}
 			}
@@ -118,7 +118,7 @@ func TestLexer_COMMENT_CStyle(t *testing.T) {
 				t.Errorf("expected type %d, got %d", tt.firstType, tok.Type)
 			}
 			if tt.firstText != "" {
-				if got := l.TokenText(tok); got != tt.firstText {
+				if got := l.MustTokenText(tok); got != tt.firstText {
 					t.Errorf("expected text %q, got %q", tt.firstText, got)
 				}
 			}
@@ -193,7 +193,7 @@ func TestLexer_COMMENT_Version_Execute(t *testing.T) {
 			if tok.Type != tt.firstType {
 				t.Errorf("expected type %d, got %d", tt.firstType, tok.Type)
 			}
-			if got := l.TokenText(tok); got != tt.firstText {
+			if got := l.MustTokenText(tok); got != tt.firstText {
 				t.Errorf("expected text %q, got %q", tt.firstText, got)
 			}
 		})
@@ -219,7 +219,7 @@ func TestLexer_COMMENT_Version_Skip(t *testing.T) {
 			if tok.Type != tt.firstType {
 				t.Errorf("expected type %d, got %d", tt.firstType, tok.Type)
 			}
-			if got := l.TokenText(tok); got != tt.firstText {
+			if got := l.MustTokenText(tok); got != tt.firstText {
 				t.Errorf("expected text %q, got %q", tt.firstText, got)
 			}
 		})
@@ -245,7 +245,7 @@ func TestLexer_COMMENT_Version_NoVersion(t *testing.T) {
 			if tok.Type != tt.firstType {
 				t.Errorf("expected type %d, got %d", tt.firstType, tok.Type)
 			}
-			if got := l.TokenText(tok); got != tt.firstText {
+			if got := l.MustTokenText(tok); got != tt.firstText {
 				t.Errorf("expected text %q, got %q", tt.firstText, got)
 			}
 		})
@@ -295,7 +295,7 @@ func TestLexer_COMMENT_SelectStar(t *testing.T) {
 		if tok.Type != exp.typ {
 			t.Errorf("token %d: expected type %d, got %d", i, exp.typ, tok.Type)
 		}
-		if got := l.TokenText(tok); got != exp.text {
+		if got := l.MustTokenText(tok); got != exp.text {
 			t.Errorf("token %d: expected text %q, got %q", i, exp.text, got)
 		}
 	}
@@ -323,7 +323,7 @@ func TestLexer_COMMENT_InContext(t *testing.T) {
 		if tok.Type != exp.typ {
 			t.Errorf("token %d: expected type %d, got %d", i, exp.typ, tok.Type)
 		}
-		if got := l.TokenText(tok); got != exp.text {
+		if got := l.MustTokenText(tok); got != exp.text {
 			t.Errorf("token %d: expected text %q, got %q", i, exp.text, got)
 		}
 	}

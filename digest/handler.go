@@ -91,7 +91,12 @@ func (h *tokenHandler) handleCloseParen() {
 
 // handleIdentifier stores an identifier with its text.
 func (h *tokenHandler) handleIdentifier(tok Token) {
-	text := h.lexer.TokenText(tok)
+	text, err := h.lexer.TokenText(tok)
+	if err != nil {
+		// Invalid token bounds should not happen for valid tokens from the lexer.
+		// If it does, skip the identifier - this is a safety fallback.
+		return
+	}
 	if tok.Type == IDENT_QUOTED {
 		text = stripIdentifierQuotes(text)
 	}

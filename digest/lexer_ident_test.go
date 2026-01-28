@@ -193,7 +193,7 @@ func TestLexer_IDENT_Simple(t *testing.T) {
 				t.Errorf("input %q: expected IDENT (%d) or IDENT_QUOTED (%d), got %d",
 					tc.input, IDENT, IDENT_QUOTED, tok.Type)
 			}
-			text := l.TokenText(tok)
+			text := l.MustTokenText(tok)
 			if text != tc.input {
 				t.Errorf("input %q: expected text %q, got %q",
 					tc.input, tc.input, text)
@@ -248,7 +248,7 @@ func TestLexer_IDENT_FollowedByDot(t *testing.T) {
 	if tok1.Type != IDENT && tok1.Type != IDENT_QUOTED {
 		t.Errorf("first token: expected IDENT, got %d", tok1.Type)
 	}
-	text1 := l.TokenText(tok1)
+	text1 := l.MustTokenText(tok1)
 	if text1 != "a" {
 		t.Errorf("first token: expected text 'a', got %q", text1)
 	}
@@ -276,7 +276,7 @@ func TestLexer_IDENT_WithDollar(t *testing.T) {
 	if tok.Type != IDENT && tok.Type != IDENT_QUOTED {
 		t.Errorf("expected IDENT, got %d", tok.Type)
 	}
-	text := l.TokenText(tok)
+	text := l.MustTokenText(tok)
 	if text != "foo$bar" {
 		t.Errorf("expected 'foo$bar', got %q", text)
 	}
@@ -292,7 +292,7 @@ func TestLexer_IDENT_MultipleIdents(t *testing.T) {
 		if tok.Type != IDENT && tok.Type != IDENT_QUOTED {
 			t.Errorf("token %d: expected IDENT, got %d", i, tok.Type)
 		}
-		text := l.TokenText(tok)
+		text := l.MustTokenText(tok)
 		if text != exp {
 			t.Errorf("token %d: expected %q, got %q", i, exp, text)
 		}

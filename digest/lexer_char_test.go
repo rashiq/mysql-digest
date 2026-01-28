@@ -34,7 +34,7 @@ func TestLexer_CHAR_SingleCharTokens(t *testing.T) {
 				t.Errorf("input %q: expected type %d (%c), got %d",
 					tc.input, int(tc.char), tc.char, tok.Type)
 			}
-			text := l.TokenText(tok)
+			text := l.MustTokenText(tok)
 			if text != string(tc.char) {
 				t.Errorf("input %q: expected text %q, got %q",
 					tc.input, string(tc.char), text)
@@ -106,7 +106,7 @@ func TestLexer_CHAR_JSONSeparator(t *testing.T) {
 	if tok.Type != JSON_SEPARATOR_SYM {
 		t.Errorf("expected JSON_SEPARATOR_SYM (%d), got %d", JSON_SEPARATOR_SYM, tok.Type)
 	}
-	text := l.TokenText(tok)
+	text := l.MustTokenText(tok)
 	if text != "->" {
 		t.Errorf("expected text %q, got %q", "->", text)
 	}
@@ -120,7 +120,7 @@ func TestLexer_CHAR_JSONUnquotedSeparator(t *testing.T) {
 	if tok.Type != JSON_UNQUOTED_SEPARATOR_SYM {
 		t.Errorf("expected JSON_UNQUOTED_SEPARATOR_SYM (%d), got %d", JSON_UNQUOTED_SEPARATOR_SYM, tok.Type)
 	}
-	text := l.TokenText(tok)
+	text := l.MustTokenText(tok)
 	if text != "->>" {
 		t.Errorf("expected text %q, got %q", "->>", text)
 	}
@@ -138,7 +138,7 @@ func TestLexer_CHAR_JSONArrowFollowedByOther(t *testing.T) {
 
 	// Second token should start 'x' (will be IDENT in later phases)
 	tok2 := l.Lex()
-	text := l.TokenText(tok2)
+	text := l.MustTokenText(tok2)
 	if text == "" {
 		t.Errorf("second token: expected identifier 'x', got empty")
 	}

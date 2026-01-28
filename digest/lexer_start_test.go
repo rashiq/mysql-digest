@@ -167,7 +167,7 @@ func TestLexer_START_MultipleTokens(t *testing.T) {
 	// Note: '*' maps to MY_LEX_END_LONG_COMMENT state in the state map,
 	// but as a standalone token it should still return the character value
 	tok3 := l.Lex()
-	text := l.TokenText(tok3)
+	text := l.MustTokenText(tok3)
 	if text != "*" {
 		t.Errorf("third token: expected '*', got %q", text)
 	}
@@ -184,7 +184,7 @@ func TestLexer_TokenText(t *testing.T) {
 	l := NewLexer("  abc")
 	tok := l.Lex()
 
-	text := l.TokenText(tok)
+	text := l.MustTokenText(tok)
 	// Note: at this stage, we only have basic CHAR handling,
 	// so 'a' will dispatch to IDENT state which falls through to default
 	// Just verify TokenText works with positions
@@ -193,6 +193,41 @@ func TestLexer_TokenText(t *testing.T) {
 	}
 	if len(text) != tok.End-tok.Start {
 		t.Errorf("TokenText length mismatch: got %d, expected %d", len(text), tok.End-tok.Start)
+	}
+}
+
+// TestLexer_TokenText_Error tests that TokenText returns error for invalid bounds
+func TestLexer_TokenText_Error(t *testing.T) {
+	l := NewLexer("abc")
+
+	tests := []struct {
+		name  string
+		token Token
+	}{
+		{
+			name:  "negative start",
+			token: Token{Type: IDENT, Start: -1, End: 2},
+		},
+		{
+			name:  "end beyond input",
+			token: Token{Type: IDENT, Start: 0, End: 100},
+		},
+		{
+			name:  "start after end",
+			token: Token{Type: IDENT, Start: 2, End: 1},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			text, err := l.TokenText(tt.token)
+			if err == nil {
+				t.Errorf("expected error for invalid token bounds, got text %q", text)
+			}
+			if text != "" {
+				t.Errorf("expected empty text on error, got %q", text)
+			}
+		})
 	}
 }
 
