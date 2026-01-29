@@ -73,19 +73,21 @@ type Lexer struct {
 	inHintComment    bool         // Whether we're parsing inside a hint comment /*+ ... */
 	inVersionComment bool         // Whether we're parsing inside a version comment /*! ... */
 	lastToken        int          // Last token returned (for hint detection)
-	mysqlVersion     int          // Target MySQL version for version comments
-	digestVersion    MySQLVersion // Target digest version (MySQL57 or MySQL80)
+	digestVersion    MySQLVersion // Target digest version (MySQL57 or MySQL84)
 }
 
-// DefaultMySQLVersion is the default MySQL version (8.4.0).
-const DefaultMySQLVersion = 80400
+var mysqlVersionMap = map[MySQLVersion]int{
+	MySQL84: 80400, // MySQL 8.4.0
+	MySQL80: 80000, // MySQL 8.0.0
+	MySQL57: 50700, // MySQL 5.7.0
+}
 
 // NewLexer creates a new lexer for the given input.
 func NewLexer(input string) *Lexer {
 	return &Lexer{
-		input:        input,
-		nextState:    MY_LEX_START,
-		mysqlVersion: DefaultMySQLVersion,
+		input:         input,
+		nextState:     MY_LEX_START,
+		digestVersion: MySQL84, // Default to MySQL 8.4
 	}
 }
 
@@ -98,6 +100,11 @@ func (l *Lexer) SetSQLMode(mode SQLMode) {
 // In MySQL57 mode, keywords that don't exist in MySQL 5.7 are treated as identifiers.
 func (l *Lexer) SetDigestVersion(version MySQLVersion) {
 	l.digestVersion = version
+}
+
+// mysqlVersionInt returns the integer MySQL version for version comments.
+func (l *Lexer) mysqlVersionInt() int {
+	return mysqlVersionMap[l.digestVersion]
 }
 
 // SetPrepareMode sets whether the lexer is in prepared statement mode.

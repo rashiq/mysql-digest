@@ -15,9 +15,8 @@ type Digest struct {
 type MySQLVersion int
 
 const (
-	// MySQL80 uses SHA-256 hashing (64 hex chars). This is the default.
 	MySQL80 MySQLVersion = iota
-	// MySQL57 uses MD5 hashing (32 hex chars).
+	MySQL84
 	MySQL57
 )
 
@@ -31,7 +30,7 @@ type Options struct {
 	MaxLength int
 
 	// Version specifies which MySQL version's digest algorithm to use.
-	// Defaults to MySQL80 (SHA-256). Use MySQL57 for MD5 hashing.
+	// Defaults to MySQL84 (SHA-256). Use MySQL57 for MD5 hashing.
 	Version MySQLVersion
 }
 
