@@ -52,6 +52,19 @@ func (l *Lexer) handleLineComment() lexResult {
 	return cont(MY_LEX_START)
 }
 
+func (l *Lexer) handleAsteriks() lexResult {
+	c := l.input[l.tokStart]
+	if l.inVersionComment {
+		if c == '*' && l.peek() == '/' {
+			l.skip()
+			l.skip()
+			l.inVersionComment = false
+			return cont(MY_LEX_START)
+		}
+	}
+	return done(Token{Type: int(c), Start: l.tokStart, End: l.pos})
+}
+
 func (l *Lexer) handleCharToken() lexResult {
 	c := l.input[l.tokStart]
 	return done(Token{Type: int(c), Start: l.tokStart, End: l.pos})
@@ -641,6 +654,7 @@ func (l *Lexer) handleVersionComment() lexResult {
 		// Check if version is <= configured MySQL version
 		if version <= l.mysqlVersion {
 			// Execute the content as code - restart lexing
+			l.inVersionComment = true
 			return cont(MY_LEX_START)
 		}
 		// Version is too high - skip as comment
@@ -649,6 +663,7 @@ func (l *Lexer) handleVersionComment() lexResult {
 
 	if digitCount == 0 {
 		// /*! without version - always execute
+		l.inVersionComment = true
 		return cont(MY_LEX_START)
 	}
 

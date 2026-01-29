@@ -64,16 +64,17 @@ func (t Token) IsError() bool {
 // Lexer tokenizes MySQL SQL statements.
 // It replicates the behavior of MySQL's lex_one_token() from sql/sql_lex.cc.
 type Lexer struct {
-	input           string       // Original SQL input
-	pos             int          // Current position in input
-	tokStart        int          // Start position of current token
-	nextState       LexState     // State for next Lex() call
-	sqlMode         SQLMode      // SQL mode flags
-	stmtPrepareMode bool         // Whether we're in prepared statement mode
-	inHintComment   bool         // Whether we're parsing inside a hint comment /*+ ... */
-	lastToken       int          // Last token returned (for hint detection)
-	mysqlVersion    int          // Target MySQL version for version comments
-	digestVersion   MySQLVersion // Target digest version (MySQL57 or MySQL80)
+	input            string       // Original SQL input
+	pos              int          // Current position in input
+	tokStart         int          // Start position of current token
+	nextState        LexState     // State for next Lex() call
+	sqlMode          SQLMode      // SQL mode flags
+	stmtPrepareMode  bool         // Whether we're in prepared statement mode
+	inHintComment    bool         // Whether we're parsing inside a hint comment /*+ ... */
+	inVersionComment bool         // Whether we're parsing inside a version comment /*! ... */
+	lastToken        int          // Last token returned (for hint detection)
+	mysqlVersion     int          // Target MySQL version for version comments
+	digestVersion    MySQLVersion // Target digest version (MySQL57 or MySQL80)
 }
 
 // DefaultMySQLVersion is the default MySQL version (8.4.0).

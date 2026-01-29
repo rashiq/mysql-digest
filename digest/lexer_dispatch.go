@@ -32,7 +32,7 @@ func init() {
 	stateHandlers[MY_LEX_EOL] = (*Lexer).handleEOL
 	stateHandlers[MY_LEX_COMMENT] = (*Lexer).handleLineComment
 	stateHandlers[MY_LEX_SEMICOLON] = (*Lexer).handleCharToken
-	stateHandlers[MY_LEX_END_LONG_COMMENT] = (*Lexer).handleCharToken
+	stateHandlers[MY_LEX_END_LONG_COMMENT] = (*Lexer).handleAsteriks
 
 	// Branching states
 	stateHandlers[MY_LEX_IDENT_OR_HEX] = (*Lexer).handleIdentOrHex

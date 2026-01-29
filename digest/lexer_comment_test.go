@@ -348,3 +348,78 @@ func TestLexer_COMMENT_MixedTypes(t *testing.T) {
 		t.Errorf("expected END_OF_INPUT, got %d", tok.Type)
 	}
 }
+
+// ============================================================================
+// Version comment token sequence tests
+// ============================================================================
+
+func TestLexer_COMMENT_Version_FullTokenSequence(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected []struct {
+			typ  int
+			text string
+		}
+	}{
+		{
+			name:  "versioned comment consumes closing",
+			input: "/*!50000 SELECT */ 1",
+			expected: []struct {
+				typ  int
+				text string
+			}{
+				{SELECT_SYM, "SELECT"},
+				{NUM, "1"},
+				{END_OF_INPUT, ""},
+			},
+		},
+		{
+			name:  "no-version comment consumes closing",
+			input: "/*! SELECT */ 1",
+			expected: []struct {
+				typ  int
+				text string
+			}{
+				{SELECT_SYM, "SELECT"},
+				{NUM, "1"},
+				{END_OF_INPUT, ""},
+			},
+		},
+		{
+			name:  "multiplication inside version comment",
+			input: "/*!50000 SELECT 2 * 3 */ AS result",
+			expected: []struct {
+				typ  int
+				text string
+			}{
+				{SELECT_SYM, "SELECT"},
+				{NUM, "2"},
+				{int('*'), "*"},
+				{NUM, "3"},
+				{AS, "AS"},
+				{IDENT, "result"},
+				{END_OF_INPUT, ""},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			l := NewLexer(tt.input)
+			for i, exp := range tt.expected {
+				tok := l.Lex()
+				if tok.Type != exp.typ {
+					t.Errorf("token %d: expected type %d, got %d", i, exp.typ, tok.Type)
+				}
+				got := ""
+				if tok.Type != END_OF_INPUT {
+					got = l.MustTokenText(tok)
+				}
+				if got != exp.text {
+					t.Errorf("token %d: expected text %q, got %q", i, exp.text, got)
+				}
+			}
+		})
+	}
+}
