@@ -103,11 +103,16 @@ func (s *tokenStore) len() int {
 }
 
 // translateToken converts a MySQL 8.0 token ID to the appropriate version.
-// For MySQL 5.7, it uses the mysql57TokenID mapping.
+// For MySQL 5.7, it uses the mysql80To57TokenMap mapping.
 // For MySQL 8.0, it returns the token unchanged.
+// ASCII tokens (0-255) are version-independent and pass through unchanged.
 func (s *tokenStore) translateToken(tokType int) int {
 	if s.version == MySQL57 {
-		if mapped, ok := mysql57TokenID[tokType]; ok {
+		// ASCII characters are identical across versions
+		if tokType < 256 {
+			return tokType
+		}
+		if mapped, ok := mysql80To57TokenMap[tokType]; ok {
 			return mapped
 		}
 		// Token not found in mapping, use TOK_UNUSED equivalent

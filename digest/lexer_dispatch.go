@@ -15,7 +15,6 @@ const maxLexState = int(MY_LEX_STRING_OR_DELIMITER) + 1
 var stateHandlers [maxLexState]StateHandler
 
 // dispatchState executes the handler for the given state.
-// Uses direct array indexing for efficiency.
 func (l *Lexer) dispatchState(state LexState) (lexResult, bool) {
 	idx := int(state)
 	if idx >= 0 && idx < maxLexState {

@@ -191,7 +191,7 @@ func (l *Lexer) findKeyword(length int) int {
 	if tok, ok := TokenKeywords[toUpper(text)]; ok {
 		// In MySQL 5.7 mode, check if this keyword exists in MySQL 5.7
 		if l.digestVersion == MySQL57 {
-			if mapped, exists := mysql57TokenID[tok]; !exists || mapped == m57TOK_UNUSED {
+			if mapped, exists := mysql80To57TokenMap[tok]; !exists || mapped == m57TOK_UNUSED {
 				// This keyword doesn't exist in MySQL 5.7, treat as identifier
 				return 0
 			}
@@ -227,6 +227,7 @@ func (l *Lexer) Lex() Token {
 
 	for {
 		result, handled := l.dispatchState(state)
+		// Fallback for unregistered states. Shouldn't happen.
 		if !handled {
 			c := byte(0)
 			if l.tokStart < len(l.input) {
