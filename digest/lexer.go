@@ -61,19 +61,18 @@ func (t Token) IsError() bool {
 	return t.Type == ABORT_SYM || t.Err != nil
 }
 
-// Lexer tokenizes MySQL SQL statements.
-// It replicates the behavior of MySQL's lex_one_token() from sql/sql_lex.cc.
 type Lexer struct {
-	input            string       // Original SQL input
-	pos              int          // Current position in input
-	tokStart         int          // Start position of current token
-	nextState        LexState     // State for next Lex() call
-	sqlMode          SQLMode      // SQL mode flags
-	stmtPrepareMode  bool         // Whether we're in prepared statement mode
-	inHintComment    bool         // Whether we're parsing inside a hint comment /*+ ... */
-	inVersionComment bool         // Whether we're parsing inside a version comment /*! ... */
-	lastToken        int          // Last token returned (for hint detection)
-	digestVersion    MySQLVersion // Target digest version (MySQL57 or MySQL84)
+	input            string
+	pos              int
+	tokStart         int
+	nextState        LexState
+	sqlMode          SQLMode
+	stmtPrepareMode  bool
+	inHintComment    bool
+	inVersionComment bool
+	lastToken        int
+	digestVersion    MySQLVersion
+	tokenConfig      *TokenConfig
 }
 
 var mysqlVersionMap = map[MySQLVersion]int{
@@ -82,12 +81,12 @@ var mysqlVersionMap = map[MySQLVersion]int{
 	MySQL57: 50700, // MySQL 5.7.0
 }
 
-// NewLexer creates a new lexer for the given input.
 func NewLexer(input string) *Lexer {
 	return &Lexer{
 		input:         input,
 		nextState:     MY_LEX_START,
-		digestVersion: MySQL84, // Default to MySQL 8.4
+		digestVersion: MySQL84,
+		tokenConfig:   GetTokenConfig(MySQL84),
 	}
 }
 
@@ -96,10 +95,9 @@ func (l *Lexer) SetSQLMode(mode SQLMode) {
 	l.sqlMode = mode
 }
 
-// SetDigestVersion sets the MySQL digest version for keyword lookup.
-// In MySQL57 mode, keywords that don't exist in MySQL 5.7 are treated as identifiers.
 func (l *Lexer) SetDigestVersion(version MySQLVersion) {
 	l.digestVersion = version
+	l.tokenConfig = GetTokenConfig(version)
 }
 
 // mysqlVersionInt returns the integer MySQL version for version comments.
@@ -187,26 +185,13 @@ func (l *Lexer) eof() bool {
 	return l.pos >= len(l.input)
 }
 
-// findKeyword looks up a keyword in the keyword map.
-// If the identifier is a keyword, returns the token type.
-// Returns 0 if not a keyword.
-// In MySQL57 mode, returns 0 for keywords that don't exist in MySQL 5.7.
 func (l *Lexer) findKeyword(length int) int {
 	if length == 0 {
 		return 0
 	}
 	text := l.input[l.tokStart : l.tokStart+length]
-	if tok, ok := TokenKeywords[toUpper(text)]; ok {
-		// In MySQL 5.7 mode, check if this keyword exists in MySQL 5.7
-		if l.digestVersion == MySQL57 {
-			if mapped, exists := mysql80To57TokenMap[tok]; !exists || mapped == m57TOK_UNUSED {
-				// This keyword doesn't exist in MySQL 5.7, treat as identifier
-				return 0
-			}
-		}
-		return tok
-	}
-	return 0
+	upper := toUpper(text)
+	return l.tokenConfig.LookupKeyword(upper)
 }
 
 // returnToken wraps token return to track lastToken for hint detection

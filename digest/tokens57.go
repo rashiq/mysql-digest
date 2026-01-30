@@ -717,7 +717,7 @@ var mysql80To57TokenMap = map[int]int{
 	ALL:                                 m57_ALL,
 	ALTER:                               m57_ALTER,
 	ALWAYS_SYM:                          m57_ALWAYS_SYM,
-	OBSOLETE_TOKEN_271:                  m57TOK_UNUSED, // ANALYSE_SYM removed in 8.0
+	OBSOLETE_TOKEN_271:                  m57_ANALYSE_SYM, // ANALYSE_SYM removed in 8.0
 	ANALYZE_SYM:                         m57_ANALYZE_SYM,
 	AND_AND_SYM:                         m57_AND_AND_SYM,
 	AND_SYM:                             m57_AND_SYM,
@@ -834,7 +834,7 @@ var mysql80To57TokenMap = map[int]int{
 	DELETE_SYM:                          m57_DELETE_SYM,
 	DESC:                                m57_DESC,
 	DESCRIBE:                            m57_DESCRIBE,
-	OBSOLETE_TOKEN_388:                  m57TOK_UNUSED, // DES_KEY_FILE removed in 8.0
+	OBSOLETE_TOKEN_388:                  m57_DES_KEY_FILE,
 	DETERMINISTIC_SYM:                   m57_DETERMINISTIC_SYM,
 	DIAGNOSTICS_SYM:                     m57_DIAGNOSTICS_SYM,
 	DIRECTORY_SYM:                       m57_DIRECTORY_SYM,
@@ -984,7 +984,7 @@ var mysql80To57TokenMap = map[int]int{
 	LIST_SYM:                            m57_LIST_SYM,
 	LOAD:                                m57_LOAD,
 	LOCAL_SYM:                           m57_LOCAL_SYM,
-	OBSOLETE_TOKEN_538:                  m57TOK_UNUSED, // LOCATOR_SYM removed in 8.0 (was after LOCAL_SYM)
+	OBSOLETE_TOKEN_538:                  m57_LOCATOR_SYM,
 	LOCKS_SYM:                           m57_LOCKS_SYM,
 	LOCK_SYM:                            m57_LOCK_SYM,
 	LOGFILE_SYM:                         m57_LOGFILE_SYM,
@@ -996,29 +996,29 @@ var mysql80To57TokenMap = map[int]int{
 	LOOP_SYM:                            m57_LOOP_SYM,
 	LOW_PRIORITY:                        m57_LOW_PRIORITY,
 	LT:                                  m57_LT,
-	OBSOLETE_TOKEN_550:                  m57TOK_UNUSED, // MASTER_AUTO_POSITION_SYM removed (was at this position)
-	OBSOLETE_TOKEN_551:                  m57TOK_UNUSED, // MASTER_BIND_SYM removed
-	OBSOLETE_TOKEN_552:                  m57TOK_UNUSED, // MASTER_CONNECT_RETRY_SYM removed
-	OBSOLETE_TOKEN_553:                  m57TOK_UNUSED, // MASTER_DELAY_SYM removed
-	OBSOLETE_TOKEN_554:                  m57TOK_UNUSED, // MASTER_HOST_SYM removed
-	OBSOLETE_TOKEN_555:                  m57TOK_UNUSED, // MASTER_LOG_FILE_SYM removed
-	OBSOLETE_TOKEN_556:                  m57TOK_UNUSED, // MASTER_LOG_POS_SYM removed
-	OBSOLETE_TOKEN_557:                  m57TOK_UNUSED, // MASTER_PASSWORD_SYM removed
-	OBSOLETE_TOKEN_558:                  m57TOK_UNUSED, // MASTER_PORT_SYM removed
-	OBSOLETE_TOKEN_559:                  m57TOK_UNUSED, // MASTER_RETRY_COUNT_SYM removed
-	OBSOLETE_TOKEN_561:                  m57TOK_UNUSED, // MASTER_SERVER_ID_SYM removed
-	OBSOLETE_TOKEN_562:                  m57TOK_UNUSED, // MASTER_SSL_SYM removed
-	OBSOLETE_TOKEN_563:                  m57TOK_UNUSED, // MASTER_SSL_CA_SYM removed
-	OBSOLETE_TOKEN_564:                  m57TOK_UNUSED, // MASTER_SSL_CAPATH_SYM removed
-	OBSOLETE_TOKEN_565:                  m57TOK_UNUSED, // MASTER_SSL_CERT_SYM removed
-	OBSOLETE_TOKEN_566:                  m57TOK_UNUSED, // MASTER_SSL_CIPHER_SYM removed
-	OBSOLETE_TOKEN_567:                  m57TOK_UNUSED, // MASTER_SSL_CRL_SYM removed
-	OBSOLETE_TOKEN_568:                  m57TOK_UNUSED, // MASTER_SSL_CRLPATH_SYM removed
-	OBSOLETE_TOKEN_569:                  m57TOK_UNUSED, // MASTER_SSL_KEY_SYM removed
-	OBSOLETE_TOKEN_570:                  m57TOK_UNUSED, // MASTER_SSL_VERIFY_SERVER_CERT_SYM removed
+	OBSOLETE_TOKEN_550:                  m57_MASTER_AUTO_POSITION_SYM,
+	OBSOLETE_TOKEN_551:                  m57_MASTER_BIND_SYM,
+	OBSOLETE_TOKEN_552:                  m57_MASTER_CONNECT_RETRY_SYM,
+	OBSOLETE_TOKEN_553:                  m57_MASTER_DELAY_SYM,
+	OBSOLETE_TOKEN_554:                  m57_MASTER_HOST_SYM,
+	OBSOLETE_TOKEN_555:                  m57_MASTER_LOG_FILE_SYM,
+	OBSOLETE_TOKEN_556:                  m57_MASTER_LOG_POS_SYM,
+	OBSOLETE_TOKEN_557:                  m57_MASTER_PASSWORD_SYM,
+	OBSOLETE_TOKEN_558:                  m57_MASTER_PORT_SYM,
+	OBSOLETE_TOKEN_559:                  m57_MASTER_RETRY_COUNT_SYM,
+	OBSOLETE_TOKEN_561:                  m57_MASTER_SERVER_ID_SYM,
+	OBSOLETE_TOKEN_562:                  m57_MASTER_SSL_SYM,
+	OBSOLETE_TOKEN_563:                  m57_MASTER_SSL_CA_SYM,
+	OBSOLETE_TOKEN_564:                  m57_MASTER_SSL_CAPATH_SYM,
+	OBSOLETE_TOKEN_565:                  m57_MASTER_SSL_CERT_SYM,
+	OBSOLETE_TOKEN_566:                  m57_MASTER_SSL_CIPHER_SYM,
+	OBSOLETE_TOKEN_567:                  m57_MASTER_SSL_CRL_SYM,
+	OBSOLETE_TOKEN_568:                  m57_MASTER_SSL_CRLPATH_SYM,
+	OBSOLETE_TOKEN_569:                  m57_MASTER_SSL_KEY_SYM,
+	OBSOLETE_TOKEN_570:                  m57_MASTER_SSL_VERIFY_SERVER_CERT_SYM,
 	MASTER_SYM:                          m57_MASTER_SYM,
-	OBSOLETE_TOKEN_572:                  m57TOK_UNUSED, // MASTER_TLS_VERSION_SYM removed
-	OBSOLETE_TOKEN_573:                  m57TOK_UNUSED, // MASTER_USER_SYM removed
+	OBSOLETE_TOKEN_572:                  m57_MASTER_TLS_VERSION_SYM,
+	OBSOLETE_TOKEN_573:                  m57_MASTER_USER_SYM,
 	MATCH:                               m57_MATCH,
 	MAX_CONNECTIONS_PER_HOUR:            m57_MAX_CONNECTIONS_PER_HOUR,
 	MAX_QUERIES_PER_HOUR:                m57_MAX_QUERIES_PER_HOUR,
@@ -1099,7 +1099,7 @@ var mysql80To57TokenMap = map[int]int{
 	PAGE_SYM:                            m57_PAGE_SYM,
 	PARAM_MARKER:                        m57_PARAM_MARKER,
 	PARSER_SYM:                          m57_PARSER_SYM,
-	OBSOLETE_TOKEN_654:                  m57TOK_UNUSED, // PARSE_GCOL_EXPR_SYM removed in 8.0
+	OBSOLETE_TOKEN_654:                  m57_PARSE_GCOL_EXPR_SYM,
 	PARTIAL:                             m57_PARTIAL,
 	PARTITION_SYM:                       m57_PARTITION_SYM,
 	PARTITIONS_SYM:                      m57_PARTITIONS_SYM,
@@ -1138,7 +1138,7 @@ var mysql80To57TokenMap = map[int]int{
 	REAL_SYM:                            m57_REAL,
 	REBUILD_SYM:                         m57_REBUILD_SYM,
 	RECOVER_SYM:                         m57_RECOVER_SYM,
-	OBSOLETE_TOKEN_693:                  m57TOK_UNUSED, // REDOFILE_SYM removed in 8.0
+	OBSOLETE_TOKEN_693:                  m57_REDOFILE_SYM,
 	REDO_BUFFER_SIZE_SYM:                m57_REDO_BUFFER_SIZE_SYM,
 	REDUNDANT_SYM:                       m57_REDUNDANT_SYM,
 	REFERENCES:                          m57_REFERENCES,
@@ -1200,7 +1200,7 @@ var mysql80To57TokenMap = map[int]int{
 	SERIAL_SYM:                          m57_SERIAL_SYM,
 	SESSION_SYM:                         m57_SESSION_SYM,
 	SERVER_SYM:                          m57_SERVER_SYM,
-	OBSOLETE_TOKEN_755:                  m57TOK_UNUSED, // SERVER_OPTIONS removed in 8.0
+	OBSOLETE_TOKEN_755:                  m57_SERVER_OPTIONS,
 	SET_SYM:                             m57_SET,
 	SET_VAR:                             m57_SET_VAR,
 	SHARE_SYM:                           m57_SHARE_SYM,
@@ -1229,7 +1229,7 @@ var mysql80To57TokenMap = map[int]int{
 	SQL_BEFORE_GTIDS:                    m57_SQL_BEFORE_GTIDS,
 	SQL_BIG_RESULT:                      m57_SQL_BIG_RESULT,
 	SQL_BUFFER_RESULT:                   m57_SQL_BUFFER_RESULT,
-	OBSOLETE_TOKEN_784:                  m57TOK_UNUSED, // SQL_CACHE_SYM removed in 8.0
+	OBSOLETE_TOKEN_784:                  m57_SQL_CACHE_SYM,
 	SQL_CALC_FOUND_ROWS:                 m57_SQL_CALC_FOUND_ROWS,
 	SQL_NO_CACHE_SYM:                    m57_SQL_NO_CACHE_SYM,
 	SQL_SMALL_RESULT:                    m57_SQL_SMALL_RESULT,
@@ -1265,7 +1265,7 @@ var mysql80To57TokenMap = map[int]int{
 	SYSDATE:                             m57_SYSDATE,
 	TABLES:                              m57_TABLES,
 	TABLESPACE_SYM:                      m57_TABLESPACE_SYM,
-	OBSOLETE_TOKEN_820:                  m57TOK_UNUSED, // TABLE_REF_PRIORITY removed in 8.0
+	OBSOLETE_TOKEN_820:                  m57_TABLE_REF_PRIORITY,
 	TABLE_SYM:                           m57_TABLE_SYM,
 	TABLE_CHECKSUM_SYM:                  m57_TABLE_CHECKSUM_SYM,
 	TABLE_NAME_SYM:                      m57_TABLE_NAME_SYM,
@@ -1293,7 +1293,7 @@ var mysql80To57TokenMap = map[int]int{
 	TRUNCATE_SYM:                        m57_TRUNCATE_SYM,
 	TYPES_SYM:                           m57_TYPES_SYM,
 	TYPE_SYM:                            m57_TYPE_SYM,
-	OBSOLETE_TOKEN_848:                  m57TOK_UNUSED, // UDF_RETURNS_SYM removed in 8.0
+	OBSOLETE_TOKEN_848:                  m57_UDF_RETURNS_SYM,
 	ULONGLONG_NUM:                       m57_ULONGLONG_NUM,
 	UNCOMMITTED_SYM:                     m57_UNCOMMITTED_SYM,
 	UNDEFINED_SYM:                       m57_UNDEFINED_SYM,
@@ -1338,7 +1338,7 @@ var mysql80To57TokenMap = map[int]int{
 	WHERE:                               m57_WHERE,
 	WHILE_SYM:                           m57_WHILE_SYM,
 	WITH:                                m57_WITH,
-	OBSOLETE_TOKEN_893:                  m57TOK_UNUSED, // WITH_CUBE_SYM removed in 8.0
+	OBSOLETE_TOKEN_893:                  m57_WITH_CUBE_SYM,
 	WITH_ROLLUP_SYM:                     m57_WITH_ROLLUP_SYM,
 	WITHOUT_SYM:                         m57_WITHOUT_SYM,
 	WORK_SYM:                            m57_WORK_SYM,
