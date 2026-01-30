@@ -1,11 +1,5 @@
 package digest
 
-// Optimizer hint comment lexer for MySQL /*+ ... */ syntax.
-// This module handles tokenization inside hint comments, which have their
-// own mini-grammar with hint keywords, identifiers, strings, and operators.
-
-// lexHintToken tokenizes inside an optimizer hint comment /*+ ... */
-// Returns hint keywords, identifiers, numbers, operators, and TOK_HINT_COMMENT_CLOSE
 func (l *Lexer) lexHintToken() Token {
 	l.startToken()
 
@@ -40,14 +34,12 @@ func (l *Lexer) lexHintToken() Token {
 	}
 }
 
-// skipHintWhitespace skips whitespace characters inside a hint comment.
 func (l *Lexer) skipHintWhitespace() {
 	for isSpace(l.peek()) {
 		l.skip()
 	}
 }
 
-// lexHintClose handles the closing */ of a hint comment.
 func (l *Lexer) lexHintClose() Token {
 	l.skip() // *
 	l.skip() // /
@@ -55,7 +47,6 @@ func (l *Lexer) lexHintClose() Token {
 	return l.returnToken(Token{Type: TOK_HINT_COMMENT_CLOSE, Start: l.tokStart, End: l.pos})
 }
 
-// lexHintEOF handles EOF inside an unclosed hint comment.
 func (l *Lexer) lexHintEOF() Token {
 	l.inHintComment = false
 	return l.returnToken(Token{
@@ -66,7 +57,6 @@ func (l *Lexer) lexHintEOF() Token {
 	})
 }
 
-// lexHintIdentOrKeyword lexes an identifier or hint keyword.
 func (l *Lexer) lexHintIdentOrKeyword() Token {
 	for isIdentChar(l.peek()) {
 		l.skip()
@@ -83,7 +73,6 @@ func (l *Lexer) lexHintIdentOrKeyword() Token {
 	return l.returnToken(Token{Type: IDENT, Start: l.tokStart, End: l.pos})
 }
 
-// lexHintNumber lexes a numeric literal inside a hint.
 func (l *Lexer) lexHintNumber() Token {
 	for isDigit(l.peek()) {
 		l.skip()
@@ -91,7 +80,6 @@ func (l *Lexer) lexHintNumber() Token {
 	return l.returnToken(Token{Type: NUM, Start: l.tokStart, End: l.pos})
 }
 
-// lexHintString lexes a single-quoted string inside a hint.
 func (l *Lexer) lexHintString() Token {
 	for {
 		ch := l.peek()
@@ -116,7 +104,6 @@ func (l *Lexer) lexHintString() Token {
 	return l.returnToken(Token{Type: TEXT_STRING, Start: l.tokStart, End: l.pos})
 }
 
-// lexHintQuotedIdent lexes a backtick-quoted identifier inside a hint.
 func (l *Lexer) lexHintQuotedIdent() Token {
 	for {
 		ch := l.peek()
@@ -141,7 +128,6 @@ func (l *Lexer) lexHintQuotedIdent() Token {
 	return l.returnToken(Token{Type: IDENT, Start: l.tokStart, End: l.pos})
 }
 
-// lexHintChar returns a single character token inside a hint.
 func (l *Lexer) lexHintChar(c byte) Token {
 	return l.returnToken(Token{Type: int(c), Start: l.tokStart, End: l.pos})
 }

@@ -1,14 +1,11 @@
 package digest
 
-// tokenHandler processes lexer tokens and coordinates storage and reduction.
-// It classifies each token and routes it to the appropriate handling logic.
 type tokenHandler struct {
 	lexer   *Lexer
 	store   *tokenStore
 	reducer *reducer
 }
 
-// newTokenHandler creates a new token handler.
 func newTokenHandler(lexer *Lexer, store *tokenStore, reducer *reducer) *tokenHandler {
 	return &tokenHandler{
 		lexer:   lexer,
@@ -17,7 +14,6 @@ func newTokenHandler(lexer *Lexer, store *tokenStore, reducer *reducer) *tokenHa
 	}
 }
 
-// processAll reads all tokens from the lexer and normalizes them.
 func (h *tokenHandler) processAll() {
 	for {
 		tok := h.lexer.Lex()
@@ -34,7 +30,6 @@ func (h *tokenHandler) processAll() {
 	}
 }
 
-// handleToken processes a single token based on its type.
 func (h *tokenHandler) handleToken(tok Token) {
 	switch {
 	case isNumericLiteral(tok.Type):
@@ -58,7 +53,6 @@ func (h *tokenHandler) handleToken(tok Token) {
 	}
 }
 
-// handleNumericLiteral processes numeric literal tokens.
 // Absorbs any preceding unary +/- signs before normalizing.
 func (h *tokenHandler) handleNumericLiteral() {
 	h.reducer.reduceUnarySign()
@@ -66,13 +60,11 @@ func (h *tokenHandler) handleNumericLiteral() {
 	h.reducer.reduceAfterValue()
 }
 
-// handleLiteral processes string and parameter marker tokens.
 func (h *tokenHandler) handleLiteral() {
 	h.store.push(TOK_GENERIC_VALUE)
 	h.reducer.reduceAfterValue()
 }
 
-// handleNull processes NULL tokens.
 // NULL is kept as a keyword after IS/IS NOT, otherwise normalized to a value.
 func (h *tokenHandler) handleNull() {
 	if h.isNullKeywordContext() {
@@ -83,18 +75,14 @@ func (h *tokenHandler) handleNull() {
 	}
 }
 
-// handleCloseParen stores ')' and triggers reductions.
 func (h *tokenHandler) handleCloseParen() {
 	h.store.push(')')
 	h.reducer.reduceAll()
 }
 
-// handleIdentifier stores an identifier with its text.
 func (h *tokenHandler) handleIdentifier(tok Token) {
 	text, err := h.lexer.TokenText(tok)
 	if err != nil {
-		// Invalid token bounds should not happen for valid tokens from the lexer.
-		// If it does, skip the identifier - this is a safety fallback.
 		return
 	}
 	if tok.Type == IDENT_QUOTED {
@@ -104,7 +92,7 @@ func (h *tokenHandler) handleIdentifier(tok Token) {
 }
 
 // isNullKeywordContext checks if NULL should be kept as a keyword.
-// Returns true when NULL follows IS or IS NOT.
+// Returns true for IS NULL or IS NOT NULL.
 func (h *tokenHandler) isNullKeywordContext() bool {
 	if h.store.len() == 0 {
 		return false
@@ -126,7 +114,6 @@ func (h *tokenHandler) isNullKeywordContext() bool {
 	return false
 }
 
-// isNumericLiteral returns true if the token type is a numeric literal.
 func isNumericLiteral(t int) bool {
 	switch t {
 	case NUM, LONG_NUM, ULONGLONG_NUM, DECIMAL_NUM, FLOAT_NUM, BIN_NUM, HEX_NUM:
@@ -135,7 +122,6 @@ func isNumericLiteral(t int) bool {
 	return false
 }
 
-// isStringLiteral returns true if the token type is a string-like literal.
 func isStringLiteral(t int) bool {
 	switch t {
 	case LEX_HOSTNAME, TEXT_STRING, NCHAR_STRING, PARAM_MARKER:

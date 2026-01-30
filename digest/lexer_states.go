@@ -1,7 +1,6 @@
 package digest
 
-// LexState represents the state of the lexer state machine.
-// These match MySQL's my_lex_states enum in strings/sql_chars.h
+// Matches MySQL's my_lex_states enum in strings/sql_chars.h
 type LexState int
 
 const (
@@ -40,8 +39,7 @@ const (
 	MY_LEX_STRING_OR_DELIMITER
 )
 
-// stateMap maps ASCII characters to their initial lexer states.
-// This replicates MySQL's init_state_maps() from strings/sql_chars.cc
+// Matches MySQL's init_state_maps() from strings/sql_chars.cc
 var stateMap [256]LexState
 
 func init() {
@@ -58,12 +56,7 @@ func init() {
 		stateMap[c] = MY_LEX_IDENT
 	}
 
-	// High-bit bytes (0x80-0xFF) -> MY_LEX_IDENT
-	// In MySQL's UTF-8 ctype table (ctype_utf8mb4), all bytes 0x80-0xFF have
-	// ctype value 3 (MY_CHAR_U | MY_CHAR_L), meaning they are treated as alpha.
-	// This is how MySQL handles multi-byte UTF-8 characters in identifiers.
-	// See: mysql-server/strings/ctype-utf8.cc ctype_utf8mb4[] and
-	//      mysql-server/strings/sql_chars.cc init_state_maps()
+	// High-bit bytes (0x80-0xFF) are treated as alpha for UTF-8 support
 	for i := 0x80; i <= 0xFF; i++ {
 		stateMap[i] = MY_LEX_IDENT
 	}
@@ -78,25 +71,20 @@ func init() {
 	stateMap['\t'] = MY_LEX_SKIP
 	stateMap['\n'] = MY_LEX_SKIP
 	stateMap['\r'] = MY_LEX_SKIP
-	stateMap['\v'] = MY_LEX_SKIP // vertical tab
-	stateMap['\f'] = MY_LEX_SKIP // form feed
+	stateMap['\v'] = MY_LEX_SKIP
+	stateMap['\f'] = MY_LEX_SKIP
 
-	// Special identifier characters
 	stateMap['_'] = MY_LEX_IDENT
 
-	// String delimiters
 	stateMap['\''] = MY_LEX_STRING
 
-	// Decimal point
 	stateMap['.'] = MY_LEX_REAL_OR_POINT
 
-	// Comparison operators
 	stateMap['>'] = MY_LEX_CMP_OP
 	stateMap['='] = MY_LEX_CMP_OP
 	stateMap['!'] = MY_LEX_CMP_OP
 	stateMap['<'] = MY_LEX_LONG_CMP_OP
 
-	// Boolean operators
 	stateMap['&'] = MY_LEX_BOOL
 	stateMap['|'] = MY_LEX_BOOL
 
@@ -105,7 +93,6 @@ func init() {
 	stateMap['/'] = MY_LEX_LONG_COMMENT
 	stateMap['*'] = MY_LEX_END_LONG_COMMENT
 
-	// Other special characters
 	stateMap[';'] = MY_LEX_SEMICOLON
 	stateMap[':'] = MY_LEX_SET_VAR
 	stateMap['@'] = MY_LEX_USER_END
@@ -124,11 +111,9 @@ func init() {
 	stateMap['n'] = MY_LEX_IDENT_OR_NCHAR
 	stateMap['N'] = MY_LEX_IDENT_OR_NCHAR
 
-	// Dollar for dollar-quoted strings
 	stateMap['$'] = MY_LEX_IDENT_OR_DOLLAR_QUOTED_TEXT
 }
 
-// getStateMap returns the initial lexer state for a given byte.
 func getStateMap(c byte) LexState {
 	return stateMap[c]
 }

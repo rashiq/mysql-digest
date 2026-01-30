@@ -1,33 +1,24 @@
 package digest
 
-// State handler methods for the MySQL lexer.
-// These extract complex state handling logic from the main Lex() switch statement.
-
-// lexResult represents the result of a state handler.
 type lexResult struct {
 	token        Token
-	done         bool     // If true, return the token. If false, continue with nextState.
-	nextState    LexState // State to transition to if not done
-	setNextLex   bool     // If true, set l.nextState to nextLexState
-	nextLexState LexState // State for the NEXT Lex() call
+	done         bool
+	nextState    LexState
+	setNextLex   bool
+	nextLexState LexState
 }
 
-// done creates a lexResult that returns a token.
 func done(t Token) lexResult {
 	return lexResult{token: t, done: true}
 }
 
-// doneWithNext creates a lexResult that returns a token and sets the next Lex() state.
 func doneWithNext(t Token, nextLex LexState) lexResult {
 	return lexResult{token: t, done: true, setNextLex: true, nextLexState: nextLex}
 }
 
-// cont creates a lexResult that continues to another state.
 func cont(state LexState) lexResult {
 	return lexResult{done: false, nextState: state}
 }
-
-// ---- Core State Handlers ----
 
 func (l *Lexer) handleStart() lexResult {
 	for getStateMap(l.peek()) == MY_LEX_SKIP {
@@ -52,7 +43,7 @@ func (l *Lexer) handleLineComment() lexResult {
 	return cont(MY_LEX_START)
 }
 
-func (l *Lexer) handleAsteriks() lexResult {
+func (l *Lexer) handleAsterisks() lexResult {
 	c := l.input[l.tokStart]
 	if l.inVersionComment {
 		if c == '*' && l.peek() == '/' {
@@ -69,8 +60,6 @@ func (l *Lexer) handleCharToken() lexResult {
 	c := l.input[l.tokStart]
 	return done(Token{Type: int(c), Start: l.tokStart, End: l.pos})
 }
-
-// ---- Branching Handlers ----
 
 func (l *Lexer) handleIdentOrHex() lexResult {
 	if l.peek() == '\'' {
@@ -109,12 +98,8 @@ func (l *Lexer) handleStringOrDelimiter() lexResult {
 	return cont(MY_LEX_STRING)
 }
 
-// ---- Character and Operator Handlers ----
-
-// handleChar handles MY_LEX_CHAR state - single character tokens and special sequences.
-// Reads the character from l.tokStart making it self-contained.
 func (l *Lexer) handleChar() lexResult {
-	// Get the character at token start (this is the character we're tokenizing)
+	// Get the character at token start
 	if l.tokStart >= len(l.input) {
 		return done(Token{Type: END_OF_INPUT, Start: l.tokStart, End: l.pos})
 	}
@@ -122,7 +107,7 @@ func (l *Lexer) handleChar() lexResult {
 
 	// Check for special two-char sequences with '-'
 	if c == '-' && l.peek() == '-' {
-		// Check for "-- " comment (-- followed by space or control char)
+		// Check for "-- " comment
 		nextChar := l.peekN(1)
 		if isSpace(nextChar) || isCntrl(nextChar) {
 			return cont(MY_LEX_COMMENT)
@@ -153,9 +138,8 @@ func (l *Lexer) handleChar() lexResult {
 	return doneWithNext(Token{Type: int(c), Start: l.tokStart, End: l.pos}, MY_LEX_START)
 }
 
-// handleIdent handles MY_LEX_IDENT state - identifier scanning with keyword lookup.
 func (l *Lexer) handleIdent() lexResult {
-	// Scan identifier - first char was already consumed
+	// Scan identifier
 	for isIdentChar(l.peek()) {
 		l.skip()
 	}
@@ -184,7 +168,7 @@ func (l *Lexer) handleIdent() lexResult {
 	return done(l.returnToken(Token{Type: IDENT, Start: l.tokStart, End: l.tokStart + length}))
 }
 
-// handleIdentSep handles MY_LEX_IDENT_SEP state - identifier separator (dot between parts).
+// handleIdentSep handles MY_LEX_IDENT_SEP state, dot between identifiers.
 func (l *Lexer) handleIdentSep() lexResult {
 	c := l.advance()
 	if isIdentChar(l.peek()) {
@@ -193,7 +177,6 @@ func (l *Lexer) handleIdentSep() lexResult {
 	return doneWithNext(Token{Type: int(c), Start: l.tokStart, End: l.pos}, MY_LEX_START)
 }
 
-// handleIdentStart handles MY_LEX_IDENT_START state - scanning identifier after separator.
 func (l *Lexer) handleIdentStart() lexResult {
 	for isIdentChar(l.peek()) {
 		l.skip()
@@ -205,7 +188,7 @@ func (l *Lexer) handleIdentStart() lexResult {
 	return done(Token{Type: IDENT, Start: l.tokStart, End: l.tokStart + length})
 }
 
-// handleCmpOp handles MY_LEX_CMP_OP state - comparison operators >, >=, =, !=.
+// handleCmpOp handles MY_LEX_CMP_OP state ( >, >=, =, != operators).
 func (l *Lexer) handleCmpOp() lexResult {
 	nextState := getStateMap(l.peek())
 	if nextState == MY_LEX_CMP_OP || nextState == MY_LEX_LONG_CMP_OP {
@@ -218,7 +201,7 @@ func (l *Lexer) handleCmpOp() lexResult {
 	return cont(MY_LEX_CHAR)
 }
 
-// handleLongCmpOp handles MY_LEX_LONG_CMP_OP state - operators like <, <=, <>, <=>.
+// handleLongCmpOp handles MY_LEX_LONG_CMP_OP state (<, <=, <>, <=> operators).
 func (l *Lexer) handleLongCmpOp() lexResult {
 	nextState := getStateMap(l.peek())
 	if nextState == MY_LEX_CMP_OP || nextState == MY_LEX_LONG_CMP_OP {
@@ -234,7 +217,7 @@ func (l *Lexer) handleLongCmpOp() lexResult {
 	return cont(MY_LEX_CHAR)
 }
 
-// handleBool handles MY_LEX_BOOL state - && and || operators.
+// handleBool handles MY_LEX_BOOL state (&& || operators).
 func (l *Lexer) handleBool() lexResult {
 	c := l.input[l.tokStart]
 	if l.peek() != c {
@@ -247,7 +230,7 @@ func (l *Lexer) handleBool() lexResult {
 	return done(Token{Type: int(c), Start: l.tokStart, End: l.pos})
 }
 
-// handleSetVar handles MY_LEX_SET_VAR state - := operator.
+// handleSetVar handles MY_LEX_SET_VAR (:= operator).
 func (l *Lexer) handleSetVar() lexResult {
 	c := l.input[l.tokStart]
 	if l.peek() != '=' {
@@ -257,10 +240,6 @@ func (l *Lexer) handleSetVar() lexResult {
 	return done(Token{Type: SET_VAR, Start: l.tokStart, End: l.pos})
 }
 
-// ---- Numeric Literal Handlers ----
-
-// handleNumberIdent handles MY_LEX_NUMBER_IDENT state - numbers or identifiers starting with digit.
-// This is a coordinator that dispatches to specialized handlers based on the prefix.
 func (l *Lexer) handleNumberIdent() lexResult {
 	c := l.input[l.tokStart]
 	// Check for 0x (hex) or 0b (binary) prefix
@@ -319,8 +298,6 @@ func (l *Lexer) handleBinLiteral0b() lexResult {
 	return cont(MY_LEX_IDENT_START)
 }
 
-// handleDigitSequence handles numeric sequences that may be integers, floats, or identifiers.
-// Called after initial digit(s) have been processed.
 func (l *Lexer) handleDigitSequence() lexResult {
 	// Consume remaining digits
 	for isDigit(l.peek()) {
@@ -378,7 +355,7 @@ func (l *Lexer) tryParseExponent() (lexResult, bool) {
 	return lexResult{}, false
 }
 
-// handleHexNumber handles MY_LEX_HEX_NUMBER state - X'hex' literals.
+// handleHexNumber handles MY_LEX_HEX_NUMBER state, X'hex' literals.
 func (l *Lexer) handleHexNumber() lexResult {
 	l.skip() // Skip the opening '
 	for {
@@ -403,8 +380,7 @@ func (l *Lexer) handleHexNumber() lexResult {
 			})
 		}
 	}
-	// MySQL checks: length includes x' (2) and closing ' (1), so total = hex_digits + 3
-	// For valid hex, need even number of hex digits, so (length % 2) should be 1 (odd)
+	// Valid hex requires even number of hex digits
 	length := l.tokenLen()
 	if (length % 2) == 0 {
 		return done(Token{
@@ -417,7 +393,7 @@ func (l *Lexer) handleHexNumber() lexResult {
 	return done(Token{Type: HEX_NUM, Start: l.tokStart, End: l.pos})
 }
 
-// handleBinNumber handles MY_LEX_BIN_NUMBER state - B'bin' literals.
+// handleBinNumber handles MY_LEX_BIN_NUMBER state, B'bin' literals.
 func (l *Lexer) handleBinNumber() lexResult {
 	l.skip() // Skip the '
 	for {
@@ -445,7 +421,7 @@ func (l *Lexer) handleBinNumber() lexResult {
 	return done(Token{Type: BIN_NUM, Start: l.tokStart, End: l.pos})
 }
 
-// handleReal handles MY_LEX_REAL state - fractional part of decimal numbers.
+// handleReal handles MY_LEX_REAL state, fractional part of decimal numbers.
 func (l *Lexer) handleReal() lexResult {
 	for isDigit(l.peek()) {
 		l.skip()
@@ -474,24 +450,17 @@ func (l *Lexer) handleReal() lexResult {
 	return done(Token{Type: DECIMAL_NUM, Start: l.tokStart, End: l.pos})
 }
 
-// ---- String and Quoted Identifier Handlers ----
-
-// QuoteScanMode determines how the quote scanner handles escape sequences.
 type QuoteScanMode int
 
 const (
-	// QuoteModeString allows backslash escapes (unless MODE_NO_BACKSLASH_ESCAPES is set)
-	QuoteModeString QuoteScanMode = iota
-	// QuoteModeIdentifier does not allow backslash escapes
-	QuoteModeIdentifier
+	QuoteModeString     QuoteScanMode = iota // allows backslash escapes
+	QuoteModeIdentifier                      // no backslash escapes
 )
 
 // scanQuoted scans a quoted string or identifier.
 // The opening quote has already been consumed by the caller.
 // sep is the quote character (', ", or `).
 // mode determines whether backslash escapes are processed.
-// tokenType is the token type to return on success.
-// Returns a lexResult with the appropriate token.
 func (l *Lexer) scanQuoted(sep byte, mode QuoteScanMode, tokenType int) lexResult {
 	allowBackslashEscape := mode == QuoteModeString && (l.sqlMode&MODE_NO_BACKSLASH_ESCAPES) == 0
 
@@ -530,23 +499,17 @@ func (l *Lexer) scanQuoted(sep byte, mode QuoteScanMode, tokenType int) lexResul
 	return done(Token{Type: tokenType, Start: l.tokStart, End: l.pos})
 }
 
-// handleString handles MY_LEX_STRING state - single-quoted strings.
-// Uses the unified scanQuoted with string mode for backslash escape handling.
 func (l *Lexer) handleString() lexResult {
 	sep := l.input[l.tokStart]
 	return l.scanQuoted(sep, QuoteModeString, TEXT_STRING)
 }
 
-// handleQuotedIdent handles MY_LEX_USER_VARIABLE_DELIMITER state - backtick/double-quoted identifiers.
-// Uses the unified scanQuoted with identifier mode (no backslash escapes).
 func (l *Lexer) handleQuotedIdent() lexResult {
 	sep := l.input[l.tokStart]
 	return l.scanQuoted(sep, QuoteModeIdentifier, IDENT_QUOTED)
 }
 
-// handleNChar handles MY_LEX_IDENT_OR_NCHAR state - N'string' or identifier.
-// If followed by a single quote, parses as NCHAR_STRING.
-// Otherwise, falls through to identifier handling.
+// handleNChar handles MY_LEX_IDENT_OR_NCHAR state, N'string' or identifier.
 func (l *Lexer) handleNChar() lexResult {
 	if l.peek() != '\'' {
 		return cont(MY_LEX_IDENT)
@@ -556,8 +519,6 @@ func (l *Lexer) handleNChar() lexResult {
 	return l.scanQuoted('\'', QuoteModeIdentifier, NCHAR_STRING)
 }
 
-// handleDollarQuoted handles MY_LEX_IDENT_OR_DOLLAR_QUOTED_TEXT state.
-// Handles $$...$$ anonymous and $tag$...$tag$ tagged dollar-quoted strings.
 func (l *Lexer) handleDollarQuoted() lexResult {
 	// c is '$' (already consumed)
 	if l.peek() == '$' {
@@ -588,10 +549,6 @@ func (l *Lexer) handleDollarQuoted() lexResult {
 	return done(l.returnToken(Token{Type: IDENT, Start: l.tokStart, End: l.tokStart + length}))
 }
 
-// ---- Comment Handlers ----
-
-// handleLongComment handles MY_LEX_LONG_COMMENT state - C-style comments, version comments, and hints.
-// This is the coordinator function that delegates to specific handlers.
 func (l *Lexer) handleLongComment() lexResult {
 	c := l.input[l.tokStart]
 	if l.peek() != '*' {
@@ -622,15 +579,12 @@ func (l *Lexer) handleDivisionOp(c byte) lexResult {
 	return done(l.returnToken(Token{Type: int(c), Start: l.tokStart, End: l.pos}))
 }
 
-// handleOptimizerHint handles /*+ optimizer hints.
-// Returns a TOK_HINT_COMMENT_OPEN token if after a hintable keyword,
-// otherwise consumes as a regular comment.
 func (l *Lexer) handleOptimizerHint() lexResult {
 	l.skip() // Skip '+'
 
 	// Check if last token was a hintable keyword (SELECT, INSERT, etc.)
 	if TokenIsHintable(l.lastToken) {
-		// Enter hint mode - subsequent Lex() calls will use lexHintToken()
+		// Enter hint mode
 		l.inHintComment = true
 		return done(l.returnToken(Token{Type: TOK_HINT_COMMENT_OPEN, Start: l.tokStart, End: l.pos}))
 	}
@@ -640,7 +594,6 @@ func (l *Lexer) handleOptimizerHint() lexResult {
 }
 
 // handleVersionComment handles /*! version comments.
-// Executes content if version is <= current MySQL version or no version specified.
 func (l *Lexer) handleVersionComment() lexResult {
 	l.skip() // Skip '!'
 
@@ -676,8 +629,6 @@ func (l *Lexer) handleBlockComment() lexResult {
 	return l.consumeBlockComment()
 }
 
-// consumeBlockComment consumes a block comment and returns the appropriate result.
-// Returns ABORT_SYM if comment is unclosed, otherwise continues to MY_LEX_START.
 func (l *Lexer) consumeBlockComment() lexResult {
 	if !l.scanComment() {
 		return done(Token{
@@ -690,9 +641,7 @@ func (l *Lexer) consumeBlockComment() lexResult {
 	return cont(MY_LEX_START)
 }
 
-// ---- Scanning Utilities ----
-
-// scanComment consumes a C-style comment until closing */.
+// scanComment consumes comment until closing */.
 // Returns true if comment was properly closed, false if EOF reached.
 func (l *Lexer) scanComment() bool {
 	for !l.eof() {
@@ -715,8 +664,6 @@ func (l *Lexer) scanLineComment() {
 	}
 }
 
-// scanVersionNumber scans a version number (5 or 6 digits) at current position.
-// Returns the version number and digit count without consuming characters.
 func (l *Lexer) scanVersionNumber() (version int, digitCount int) {
 	for i := 0; i < 6; i++ {
 		ch := l.peekN(i)
@@ -730,8 +677,6 @@ func (l *Lexer) scanVersionNumber() (version int, digitCount int) {
 	return version, digitCount
 }
 
-// scanDollarQuotedString scans a dollar-quoted string.
-// The opening delimiter (either $$ or $tag$) has already been consumed.
 func (l *Lexer) scanDollarQuotedString(tag string) Token {
 	closingDelim := "$" + tag + "$"
 	closingLen := len(closingDelim)

@@ -1,18 +1,10 @@
 package digest
 
-// Integer type classification for MySQL numeric literals.
-// This module determines the appropriate token type (NUM, LONG_NUM, etc.)
-// based on the magnitude of integer literals, matching MySQL's int_token()
-// function in sql_lex.cc.
+// Matches MySQL's int_token() in sql_lex.cc.
 
-// IntegerClassifier determines the token type for integer literals.
-// It is stateless and can be reused across multiple classifications.
 type IntegerClassifier struct{}
 
-// Boundary constants for integer type classification.
-// These match MySQL's limits in sql_lex.cc.
 const (
-	// Maximum values for each integer type
 	maxLong             = "2147483647" // 2^31 - 1
 	maxLongLen          = 10
 	minSignedLong       = "2147483648"          // 2^31 (absolute value of -2^31)
@@ -23,14 +15,10 @@ const (
 	maxUnsignedLongLen  = 20
 )
 
-// NewIntegerClassifier creates a new IntegerClassifier.
 func NewIntegerClassifier() *IntegerClassifier {
 	return &IntegerClassifier{}
 }
 
-// Classify determines the token type for an integer string.
-// The string may include an optional leading sign (+/-) and leading zeros.
-// Returns NUM, LONG_NUM, ULONGLONG_NUM, or DECIMAL_NUM.
 func (c *IntegerClassifier) Classify(s string) int {
 	if len(s) == 0 {
 		return NUM
@@ -68,7 +56,6 @@ func (c *IntegerClassifier) Classify(s string) int {
 	return c.classifyByMagnitude(str, length, neg)
 }
 
-// classifyByMagnitude compares the normalized digit string against type boundaries.
 func (c *IntegerClassifier) classifyByMagnitude(str string, length int, neg bool) int {
 	var cmp string
 	var smaller, bigger int
@@ -116,7 +103,6 @@ func (c *IntegerClassifier) classifyByMagnitude(str string, length int, neg bool
 	return c.compareDigits(str, cmp, smaller, bigger)
 }
 
-// compareDigits compares two digit strings and returns smaller or bigger token type.
 func (c *IntegerClassifier) compareDigits(str, cmp string, smaller, bigger int) int {
 	for i := 0; i < len(str) && i < len(cmp); i++ {
 		if str[i] < cmp[i] {
@@ -129,10 +115,8 @@ func (c *IntegerClassifier) compareDigits(str, cmp string, smaller, bigger int) 
 	return smaller // Equal means it fits in the smaller type
 }
 
-// defaultClassifier is a package-level classifier for convenience.
 var defaultClassifier = NewIntegerClassifier()
 
-// ClassifyInteger is a convenience function that uses the default classifier.
 func ClassifyInteger(s string) int {
 	return defaultClassifier.Classify(s)
 }

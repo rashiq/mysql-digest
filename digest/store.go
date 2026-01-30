@@ -36,8 +36,7 @@ func (s *tokenStore) push(tokType int) {
 		byte((binTok>>8)&0xff))
 }
 
-// pushIdent adds an identifier token with its text to both stores.
-// Binary format: 2 bytes (token) + 2 bytes (length) + N bytes (text).
+// Binary format for identifiers: 2 bytes (token) + 2 bytes (length) + N bytes (text).
 func (s *tokenStore) pushIdent(text string) {
 	s.tokens = append(s.tokens, storedToken{tokType: TOK_IDENT, text: text})
 	binTok := s.translateToken(TOK_IDENT)

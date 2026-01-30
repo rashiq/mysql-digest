@@ -1,23 +1,16 @@
 package digest
 
-// TokenInfo holds metadata about a token
 type TokenInfo struct {
 	String      string
 	Length      int
-	AppendSpace bool // If true, add space after this token (delayed until next token)
+	AppendSpace bool
 	StartExpr   bool
 	IsHintable  bool
 }
 
-// TokenInfos maps token IDs to their metadata
-// Size must be large enough to hold all tokens.
-// Max token is around 1251 (MY_MAX_TOKEN)
 var TokenInfos [1252]TokenInfo
 
 func init() {
-	// 1. Initialize all tokens with default values
-	// By default: AppendSpace = true, StartExpr = false
-	// MySQL's gen_lex_token.cc sets m_append_space = true for all tokens by default
 	for i := 0; i < 256; i++ {
 		TokenInfos[i] = TokenInfo{
 			String:      string(rune(i)),
@@ -27,9 +20,6 @@ func init() {
 		}
 	}
 
-	// For named tokens (256+), we will rely on overrides or manual setting if needed
-	// But gen_lex_token.cc initializes them.
-	// We'll set a default "AppendSpace=true" for everything else too, as per `gen_lex_token_string` constructor
 	for i := 256; i < len(TokenInfos); i++ {
 		TokenInfos[i] = TokenInfo{
 			AppendSpace: true,
@@ -37,7 +27,6 @@ func init() {
 		}
 	}
 
-	// 2. Apply token info overrides derived from sql/gen_lex_token.cc
 	TokenInfos[WITH_ROLLUP_SYM].String = "WITH ROLLUP"
 	TokenInfos[NOT2_SYM].String = "!"
 	TokenInfos[OR2_SYM].String = "||"
@@ -71,11 +60,9 @@ func init() {
 	TokenInfos[TOK_UNUSED].String = "UNUSED"
 
 	// MySQL only sets m_append_space = false for '@' token
-	// See gen_lex_token.cc line 391: compiled_token_array[(int)'@'].m_append_space = false;
+	// See gen_lex_token.cc: compiled_token_array[(int)'@'].m_append_space = false;
 	TokenInfos['@'].AppendSpace = false
 
-	// StartExpr tokens - these indicate a following +/- would be unary, not binary
-	// See gen_lex_token.cc lines 402-440
 	TokenInfos['('].StartExpr = true
 	TokenInfos[','].StartExpr = true
 	TokenInfos['='].StartExpr = true
@@ -133,7 +120,6 @@ func init() {
 	TokenInfos[STARTS_SYM].StartExpr = true
 	TokenInfos[ENDS_SYM].StartExpr = true
 	TokenInfos[DEFAULT_SYM].StartExpr = true
-	// IN_SYM is also a start_expr token (added for completeness)
 	TokenInfos[IN_SYM].StartExpr = true
 
 	// Hint comment tokens
@@ -148,7 +134,6 @@ func init() {
 	TokenInfos[REPLACE_SYM].IsHintable = true
 }
 
-// TokenString returns the string representation of a token ID
 func TokenString(tok int) string {
 	if tok >= 0 && tok < len(TokenInfos) {
 		s := TokenInfos[tok].String
@@ -156,16 +141,12 @@ func TokenString(tok int) string {
 			return s
 		}
 	}
-	// Fallback/Default behavior if string is missing?
-	// In C++, if not initialized, it uses "(unknown)" or dummy.
-	// For single chars, it's the char itself.
 	if tok < 256 {
 		return string(rune(tok))
 	}
 	return "(unknown)"
 }
 
-// TokenAppendSpace returns whether a space should be appended after this token
 func TokenAppendSpace(tok int) bool {
 	if tok >= 0 && tok < len(TokenInfos) {
 		return TokenInfos[tok].AppendSpace
@@ -173,7 +154,6 @@ func TokenAppendSpace(tok int) bool {
 	return true
 }
 
-// TokenStartExpr returns whether this token starts an expression
 func TokenStartExpr(tok int) bool {
 	if tok >= 0 && tok < len(TokenInfos) {
 		return TokenInfos[tok].StartExpr
@@ -181,7 +161,6 @@ func TokenStartExpr(tok int) bool {
 	return false
 }
 
-// TokenIsHintable returns whether this token can be followed by optimizer hints /*+ ... */
 func TokenIsHintable(tok int) bool {
 	if tok >= 0 && tok < len(TokenInfos) {
 		return TokenInfos[tok].IsHintable
