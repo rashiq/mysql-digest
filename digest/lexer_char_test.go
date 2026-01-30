@@ -4,7 +4,6 @@ import (
 	"testing"
 )
 
-// TestLexer_CHAR_SingleCharTokens tests that single-char operators are returned as-is
 func TestLexer_CHAR_SingleCharTokens(t *testing.T) {
 	testCases := []struct {
 		name  string
@@ -43,7 +42,6 @@ func TestLexer_CHAR_SingleCharTokens(t *testing.T) {
 	}
 }
 
-// TestLexer_CHAR_MinusAlone tests that '-' alone returns minus character
 func TestLexer_CHAR_MinusAlone(t *testing.T) {
 	l := NewLexer("-")
 	tok := l.Lex()
@@ -53,7 +51,6 @@ func TestLexer_CHAR_MinusAlone(t *testing.T) {
 	}
 }
 
-// TestLexer_CHAR_MinusNotComment tests that -- without space/control char is not a comment
 func TestLexer_CHAR_MinusNotComment(t *testing.T) {
 	// "--x" should produce "-", "-", then identifier "x"
 	l := NewLexer("--x")
@@ -71,7 +68,6 @@ func TestLexer_CHAR_MinusNotComment(t *testing.T) {
 	}
 }
 
-// TestLexer_CHAR_DoubleDashComment tests that "-- comment" is skipped as comment
 func TestLexer_CHAR_DoubleDashComment(t *testing.T) {
 	testCases := []struct {
 		name  string
@@ -98,7 +94,6 @@ func TestLexer_CHAR_DoubleDashComment(t *testing.T) {
 	}
 }
 
-// TestLexer_CHAR_JSONSeparator tests "->" returns JSON_SEPARATOR_SYM
 func TestLexer_CHAR_JSONSeparator(t *testing.T) {
 	l := NewLexer("->")
 	tok := l.Lex()
@@ -112,7 +107,6 @@ func TestLexer_CHAR_JSONSeparator(t *testing.T) {
 	}
 }
 
-// TestLexer_CHAR_JSONUnquotedSeparator tests "->>" returns JSON_UNQUOTED_SEPARATOR_SYM
 func TestLexer_CHAR_JSONUnquotedSeparator(t *testing.T) {
 	l := NewLexer("->>")
 	tok := l.Lex()
@@ -126,7 +120,6 @@ func TestLexer_CHAR_JSONUnquotedSeparator(t *testing.T) {
 	}
 }
 
-// TestLexer_CHAR_JSONArrowFollowedByOther tests "->x" returns JSON_SEPARATOR_SYM then x
 func TestLexer_CHAR_JSONArrowFollowedByOther(t *testing.T) {
 	l := NewLexer("->x")
 
@@ -144,8 +137,6 @@ func TestLexer_CHAR_JSONArrowFollowedByOther(t *testing.T) {
 	}
 }
 
-// TestLexer_CHAR_CloseParenNoSignedNumbers tests that ')' doesn't allow signed numbers after
-// The close paren should NOT set next_state = MY_LEX_START to prevent signed number parsing
 func TestLexer_CHAR_CloseParenNoSignedNumbers(t *testing.T) {
 	l := NewLexer(")-1")
 
@@ -162,7 +153,6 @@ func TestLexer_CHAR_CloseParenNoSignedNumbers(t *testing.T) {
 	}
 }
 
-// TestLexer_CHAR_OtherCharsAllowSignedNumbers tests that chars other than ')' allow signed numbers
 func TestLexer_CHAR_OtherCharsAllowSignedNumbers(t *testing.T) {
 	// For now, we just verify the tokens are parsed correctly
 	// The "allow signed numbers" behavior will be tested more fully when number parsing is implemented
@@ -179,8 +169,6 @@ func TestLexer_CHAR_OtherCharsAllowSignedNumbers(t *testing.T) {
 	}
 }
 
-// TestLexer_CHAR_ParamMarker tests that '?' returns PARAM_MARKER in prepare mode
-// when not followed by an identifier character
 func TestLexer_CHAR_ParamMarkerInPrepareMode(t *testing.T) {
 	l := NewLexer("?")
 	l.SetPrepareMode(true)
@@ -191,7 +179,6 @@ func TestLexer_CHAR_ParamMarkerInPrepareMode(t *testing.T) {
 	}
 }
 
-// TestLexer_CHAR_ParamMarkerWithWhitespace tests '? ' in prepare mode
 func TestLexer_CHAR_ParamMarkerWithWhitespace(t *testing.T) {
 	l := NewLexer("? ")
 	l.SetPrepareMode(true)
@@ -202,8 +189,6 @@ func TestLexer_CHAR_ParamMarkerWithWhitespace(t *testing.T) {
 	}
 }
 
-// TestLexer_CHAR_ParamMarkerBeforeIdent tests '?x' is NOT a param marker
-// because '?' followed by identifier char could cause issues with binlog
 func TestLexer_CHAR_ParamMarkerBeforeIdent(t *testing.T) {
 	l := NewLexer("?x")
 	l.SetPrepareMode(true)
@@ -215,7 +200,6 @@ func TestLexer_CHAR_ParamMarkerBeforeIdent(t *testing.T) {
 	}
 }
 
-// TestLexer_CHAR_ParamMarkerNotInPrepareMode tests '?' outside prepare mode
 func TestLexer_CHAR_ParamMarkerNotInPrepareMode(t *testing.T) {
 	l := NewLexer("?")
 	// Default mode, prepare mode is off
@@ -227,7 +211,6 @@ func TestLexer_CHAR_ParamMarkerNotInPrepareMode(t *testing.T) {
 	}
 }
 
-// TestLexer_CHAR_MultipleOperators tests a sequence of operators
 func TestLexer_CHAR_MultipleOperators(t *testing.T) {
 	l := NewLexer("(+,-)")
 

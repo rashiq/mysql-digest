@@ -4,11 +4,6 @@ import (
 	"testing"
 )
 
-// ============================================================================
-// MY_LEX_NUMBER_IDENT tests - Numbers that start with a digit
-// ============================================================================
-
-// TestLexer_NUMBER_HexLiteral tests 0x hex numbers
 func TestLexer_NUMBER_HexLiteral(t *testing.T) {
 	testCases := []struct {
 		name  string
@@ -35,7 +30,6 @@ func TestLexer_NUMBER_HexLiteral(t *testing.T) {
 	}
 }
 
-// TestLexer_NUMBER_HexInvalid tests invalid hex that becomes identifier
 func TestLexer_NUMBER_HexInvalid(t *testing.T) {
 	testCases := []struct {
 		name  string
@@ -59,7 +53,6 @@ func TestLexer_NUMBER_HexInvalid(t *testing.T) {
 	}
 }
 
-// TestLexer_NUMBER_BinLiteral tests 0b binary numbers
 func TestLexer_NUMBER_BinLiteral(t *testing.T) {
 	testCases := []struct {
 		name  string
@@ -85,7 +78,6 @@ func TestLexer_NUMBER_BinLiteral(t *testing.T) {
 	}
 }
 
-// TestLexer_NUMBER_BinInvalid tests invalid binary that becomes identifier
 func TestLexer_NUMBER_BinInvalid(t *testing.T) {
 	testCases := []struct {
 		name  string
@@ -109,7 +101,6 @@ func TestLexer_NUMBER_BinInvalid(t *testing.T) {
 	}
 }
 
-// TestLexer_NUMBER_Integer tests simple integer numbers
 func TestLexer_NUMBER_Integer(t *testing.T) {
 	testCases := []struct {
 		name     string
@@ -145,7 +136,6 @@ func TestLexer_NUMBER_Integer(t *testing.T) {
 	}
 }
 
-// TestLexer_NUMBER_IntegerIdent tests numbers followed by letters (becomes ident)
 func TestLexer_NUMBER_IntegerIdent(t *testing.T) {
 	testCases := []struct {
 		name  string
@@ -172,7 +162,6 @@ func TestLexer_NUMBER_IntegerIdent(t *testing.T) {
 	}
 }
 
-// TestLexer_NUMBER_Float tests floating point numbers with exponent
 func TestLexer_NUMBER_Float(t *testing.T) {
 	testCases := []struct {
 		name  string
@@ -200,7 +189,6 @@ func TestLexer_NUMBER_Float(t *testing.T) {
 	}
 }
 
-// TestLexer_NUMBER_FloatInvalid tests invalid float notation becomes ident
 func TestLexer_NUMBER_FloatInvalid(t *testing.T) {
 	testCases := []struct {
 		name  string
@@ -223,9 +211,6 @@ func TestLexer_NUMBER_FloatInvalid(t *testing.T) {
 	}
 }
 
-// TestLexer_NUMBER_ExponentWithSignButNoDigits tests the edge case where
-// exponent has sign but no digits (e.g., "1e+x"). This was a bug where
-// position wasn't properly restored.
 func TestLexer_NUMBER_ExponentWithSignButNoDigits(t *testing.T) {
 	testCases := []struct {
 		name      string
@@ -286,7 +271,6 @@ func TestLexer_NUMBER_ExponentWithSignButNoDigits(t *testing.T) {
 	}
 }
 
-// TestLexer_NUMBER_Decimal tests decimal numbers (with decimal point)
 func TestLexer_NUMBER_Decimal(t *testing.T) {
 	testCases := []struct {
 		name  string
@@ -311,7 +295,6 @@ func TestLexer_NUMBER_Decimal(t *testing.T) {
 	}
 }
 
-// TestLexer_NUMBER_DecimalWithExponent tests decimal with exponent = float
 func TestLexer_NUMBER_DecimalWithExponent(t *testing.T) {
 	testCases := []struct {
 		name  string
@@ -335,7 +318,6 @@ func TestLexer_NUMBER_DecimalWithExponent(t *testing.T) {
 	}
 }
 
-// TestLexer_NUMBER_LeadingDot tests numbers starting with decimal point
 func TestLexer_NUMBER_LeadingDot(t *testing.T) {
 	testCases := []struct {
 		name     string
@@ -359,7 +341,6 @@ func TestLexer_NUMBER_LeadingDot(t *testing.T) {
 	}
 }
 
-// TestLexer_NUMBER_DotNotNumber tests dot followed by non-digit
 func TestLexer_NUMBER_DotNotNumber(t *testing.T) {
 	l := NewLexer(".abc")
 
@@ -376,7 +357,6 @@ func TestLexer_NUMBER_DotNotNumber(t *testing.T) {
 	}
 }
 
-// TestLexer_NUMBER_Sequence tests number in context
 func TestLexer_NUMBER_Sequence(t *testing.T) {
 	l := NewLexer("SELECT 123, 45.67")
 

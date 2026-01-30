@@ -2,13 +2,6 @@ package digest
 
 import "testing"
 
-// Phase 6: MY_LEX_HEX_NUMBER, MY_LEX_BIN_NUMBER tests
-// Tests for x'...' and b'...' format hex/binary literals
-
-// ============================================================================
-// MY_LEX_HEX_NUMBER: x'...' format
-// ============================================================================
-
 func TestLexer_HEX_NUMBER_Valid(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -125,10 +118,6 @@ func TestLexer_HEX_NUMBER_InContext(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// MY_LEX_BIN_NUMBER: b'...' format
-// ============================================================================
-
 func TestLexer_BIN_NUMBER_Valid(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -221,10 +210,6 @@ func TestLexer_BIN_NUMBER_InContext(t *testing.T) {
 		t.Errorf("expected b'10101010', got %q", got)
 	}
 }
-
-// ============================================================================
-// Mixed tests - ensure X/x and B/b don't interfere with identifiers
-// ============================================================================
 
 func TestLexer_HEX_BIN_NotLiteral(t *testing.T) {
 	// When X or B is not followed by quote, it should be an identifier

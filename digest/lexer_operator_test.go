@@ -4,7 +4,6 @@ import (
 	"testing"
 )
 
-// TestLexer_OP_Comparison tests comparison operators
 func TestLexer_OP_Comparison(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -52,7 +51,6 @@ func TestLexer_OP_Comparison(t *testing.T) {
 	}
 }
 
-// TestLexer_OP_Boolean tests boolean operators && and ||
 func TestLexer_OP_Boolean(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -83,7 +81,6 @@ func TestLexer_OP_Boolean(t *testing.T) {
 	}
 }
 
-// TestLexer_OP_SingleChar tests single character operators
 func TestLexer_OP_SingleChar(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -110,7 +107,6 @@ func TestLexer_OP_SingleChar(t *testing.T) {
 	}
 }
 
-// TestLexer_OP_SetVar tests the := operator
 func TestLexer_OP_SetVar(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -141,7 +137,6 @@ func TestLexer_OP_SetVar(t *testing.T) {
 	}
 }
 
-// TestLexer_OP_InContext tests operators in context with other tokens
 func TestLexer_OP_InContext(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -231,7 +226,6 @@ func TestLexer_OP_InContext(t *testing.T) {
 	}
 }
 
-// TestLexer_OP_EdgeCases tests edge cases for operators
 func TestLexer_OP_EdgeCases(t *testing.T) {
 	tests := []struct {
 		name      string

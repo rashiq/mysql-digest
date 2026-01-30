@@ -4,7 +4,6 @@ import (
 	"testing"
 )
 
-// TestLexer_START_EmptyInput tests that empty input returns END_OF_INPUT
 func TestLexer_START_EmptyInput(t *testing.T) {
 	l := NewLexer("")
 	tok := l.Lex()
@@ -17,7 +16,6 @@ func TestLexer_START_EmptyInput(t *testing.T) {
 	}
 }
 
-// TestLexer_START_WhitespaceOnly tests that whitespace-only input returns END_OF_INPUT
 func TestLexer_START_WhitespaceOnly(t *testing.T) {
 	testCases := []struct {
 		name  string
@@ -46,7 +44,6 @@ func TestLexer_START_WhitespaceOnly(t *testing.T) {
 	}
 }
 
-// TestLexer_START_LeadingWhitespaceStripped tests that leading whitespace is skipped
 func TestLexer_START_LeadingWhitespaceStripped(t *testing.T) {
 	testCases := []struct {
 		name          string
@@ -78,7 +75,6 @@ func TestLexer_START_LeadingWhitespaceStripped(t *testing.T) {
 	}
 }
 
-// TestLexer_START_StateDispatch tests that MY_LEX_START dispatches to correct states
 func TestLexer_START_StateDispatch(t *testing.T) {
 	testCases := []struct {
 		name          string
@@ -147,7 +143,6 @@ func TestLexer_START_StateDispatch(t *testing.T) {
 	}
 }
 
-// TestLexer_START_MultipleTokens tests that lexer can handle multiple tokens
 func TestLexer_START_MultipleTokens(t *testing.T) {
 	l := NewLexer("+ - *")
 
@@ -179,7 +174,6 @@ func TestLexer_START_MultipleTokens(t *testing.T) {
 	}
 }
 
-// TestLexer_TokenText tests that TokenText returns correct slice
 func TestLexer_TokenText(t *testing.T) {
 	l := NewLexer("  abc")
 	tok := l.Lex()
@@ -196,7 +190,6 @@ func TestLexer_TokenText(t *testing.T) {
 	}
 }
 
-// TestLexer_TokenText_Error tests that TokenText returns error for invalid bounds
 func TestLexer_TokenText_Error(t *testing.T) {
 	l := NewLexer("abc")
 
@@ -231,7 +224,6 @@ func TestLexer_TokenText_Error(t *testing.T) {
 	}
 }
 
-// TestLexer_SKIP_WhitespaceCharacters tests that all whitespace chars are recognized
 func TestLexer_SKIP_WhitespaceCharacters(t *testing.T) {
 	whitespaceChars := []byte{' ', '\t', '\n', '\r', '\v', '\f'}
 
@@ -244,7 +236,6 @@ func TestLexer_SKIP_WhitespaceCharacters(t *testing.T) {
 	}
 }
 
-// TestLexer_EOL_NullByte tests that null byte maps to MY_LEX_EOL
 func TestLexer_EOL_NullByte(t *testing.T) {
 	state := getStateMap(0)
 	if state != MY_LEX_EOL {

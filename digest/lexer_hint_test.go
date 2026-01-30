@@ -2,12 +2,6 @@ package digest
 
 import "testing"
 
-// Phase 13: Optimizer Hints tests
-// MySQL Reference: sql/sql_lex_hints.cc, sql/sql_lex.cc:873-915
-//
-// Optimizer hints /*+ ... */ are special comments that provide query optimization hints.
-// They are only recognized after hintable keywords: SELECT, INSERT, UPDATE, DELETE, REPLACE
-
 func TestLexer_Hint_Basic(t *testing.T) {
 	tests := []struct {
 		name   string

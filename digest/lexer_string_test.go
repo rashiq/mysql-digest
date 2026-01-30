@@ -2,13 +2,6 @@ package digest
 
 import "testing"
 
-// Phase 7: MY_LEX_STRING, MY_LEX_STRING_OR_DELIMITER, MY_LEX_USER_VARIABLE_DELIMITER tests
-// Tests for string literals and quoted identifiers
-
-// ============================================================================
-// MY_LEX_STRING: Single-quoted strings 'text'
-// ============================================================================
-
 func TestLexer_STRING_SingleQuote_Valid(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -139,10 +132,6 @@ func TestLexer_STRING_Unclosed(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// MY_LEX_STRING_OR_DELIMITER: Double-quoted strings "text"
-// ============================================================================
-
 func TestLexer_STRING_DoubleQuote_Default(t *testing.T) {
 	// Default mode: " is a string delimiter
 	tests := []struct {
@@ -218,10 +207,6 @@ func TestLexer_STRING_DoubleQuote_Unclosed(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// MY_LEX_USER_VARIABLE_DELIMITER: Backtick-quoted identifiers `ident`
-// ============================================================================
-
 func TestLexer_STRING_Backtick_Valid(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -296,10 +281,6 @@ func TestLexer_STRING_Backtick_Unclosed(t *testing.T) {
 		})
 	}
 }
-
-// ============================================================================
-// Context tests - strings in typical SQL
-// ============================================================================
 
 func TestLexer_STRING_InContext(t *testing.T) {
 	l := NewLexer("SELECT 'hello', \"world\", `column` FROM t")

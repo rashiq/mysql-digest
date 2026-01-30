@@ -4,11 +4,6 @@ import (
 	"testing"
 )
 
-// ============================================================================
-// MY_LEX_IDENT_OR_NCHAR tests
-// ============================================================================
-
-// TestLexer_IDENT_OR_NCHAR_NcharString tests N'string' returns NCHAR_STRING
 func TestLexer_IDENT_OR_NCHAR_NcharString(t *testing.T) {
 	testCases := []struct {
 		name  string
@@ -33,7 +28,6 @@ func TestLexer_IDENT_OR_NCHAR_NcharString(t *testing.T) {
 	}
 }
 
-// TestLexer_IDENT_OR_NCHAR_NotNchar tests N not followed by ' is IDENT
 func TestLexer_IDENT_OR_NCHAR_NotNchar(t *testing.T) {
 	testCases := []struct {
 		name     string
@@ -59,11 +53,6 @@ func TestLexer_IDENT_OR_NCHAR_NotNchar(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// MY_LEX_IDENT_OR_HEX tests
-// ============================================================================
-
-// TestLexer_IDENT_OR_HEX_HexString tests X'hex' transitions to HEX_NUMBER
 func TestLexer_IDENT_OR_HEX_HexString(t *testing.T) {
 	testCases := []struct {
 		name  string
@@ -87,7 +76,6 @@ func TestLexer_IDENT_OR_HEX_HexString(t *testing.T) {
 	}
 }
 
-// TestLexer_IDENT_OR_HEX_NotHex tests X not followed by ' is IDENT
 func TestLexer_IDENT_OR_HEX_NotHex(t *testing.T) {
 	testCases := []struct {
 		name  string
@@ -111,11 +99,6 @@ func TestLexer_IDENT_OR_HEX_NotHex(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// MY_LEX_IDENT_OR_BIN tests
-// ============================================================================
-
-// TestLexer_IDENT_OR_BIN_BinString tests B'bin' transitions to BIN_NUMBER
 func TestLexer_IDENT_OR_BIN_BinString(t *testing.T) {
 	testCases := []struct {
 		name  string
@@ -139,7 +122,6 @@ func TestLexer_IDENT_OR_BIN_BinString(t *testing.T) {
 	}
 }
 
-// TestLexer_IDENT_OR_BIN_NotBin tests B not followed by ' is IDENT
 func TestLexer_IDENT_OR_BIN_NotBin(t *testing.T) {
 	testCases := []struct {
 		name  string
@@ -164,11 +146,6 @@ func TestLexer_IDENT_OR_BIN_NotBin(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// MY_LEX_IDENT tests
-// ============================================================================
-
-// TestLexer_IDENT_Simple tests simple identifiers
 func TestLexer_IDENT_Simple(t *testing.T) {
 	testCases := []struct {
 		name  string
@@ -202,7 +179,6 @@ func TestLexer_IDENT_Simple(t *testing.T) {
 	}
 }
 
-// TestLexer_IDENT_Keywords tests that keywords are recognized
 func TestLexer_IDENT_Keywords(t *testing.T) {
 	testCases := []struct {
 		name     string
@@ -239,7 +215,6 @@ func TestLexer_IDENT_Keywords(t *testing.T) {
 	}
 }
 
-// TestLexer_IDENT_FollowedByDot tests identifier followed by dot sets IDENT_SEP
 func TestLexer_IDENT_FollowedByDot(t *testing.T) {
 	l := NewLexer("a.b")
 
@@ -266,7 +241,6 @@ func TestLexer_IDENT_FollowedByDot(t *testing.T) {
 	}
 }
 
-// TestLexer_IDENT_WithDollar tests identifiers containing $
 func TestLexer_IDENT_WithDollar(t *testing.T) {
 	// Note: $ as first char goes to IDENT_OR_DOLLAR_QUOTED_TEXT
 	// But $ in middle of ident should work
@@ -282,7 +256,6 @@ func TestLexer_IDENT_WithDollar(t *testing.T) {
 	}
 }
 
-// TestLexer_IDENT_MultipleIdents tests sequence of identifiers
 func TestLexer_IDENT_MultipleIdents(t *testing.T) {
 	l := NewLexer("foo bar baz")
 
@@ -299,7 +272,6 @@ func TestLexer_IDENT_MultipleIdents(t *testing.T) {
 	}
 }
 
-// TestLexer_IDENT_IdentThenOperator tests identifier followed by operator
 func TestLexer_IDENT_IdentThenOperator(t *testing.T) {
 	l := NewLexer("foo+bar")
 
@@ -322,7 +294,6 @@ func TestLexer_IDENT_IdentThenOperator(t *testing.T) {
 	}
 }
 
-// TestLexer_IDENT_FunctionCall tests identifier followed by parenthesis
 func TestLexer_IDENT_FunctionCall(t *testing.T) {
 	l := NewLexer("COUNT(")
 
@@ -333,7 +304,6 @@ func TestLexer_IDENT_FunctionCall(t *testing.T) {
 	}
 }
 
-// TestLexer_IDENT_NotFunctionCall tests keyword not followed by paren
 func TestLexer_IDENT_NotFunctionCall(t *testing.T) {
 	// Some keywords are only keywords when followed by (
 	// For now, test that regular keywords work without (

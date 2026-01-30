@@ -2,13 +2,6 @@ package digest
 
 import "testing"
 
-// Phase 8: MY_LEX_COMMENT, MY_LEX_LONG_COMMENT, MY_LEX_END_LONG_COMMENT tests
-// Tests for single-line and multi-line comments
-
-// ============================================================================
-// MY_LEX_COMMENT: Single-line comments (-- and #)
-// ============================================================================
-
 func TestLexer_COMMENT_DoubleDash(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -91,10 +84,6 @@ func TestLexer_COMMENT_Hash(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// MY_LEX_LONG_COMMENT: Multi-line C-style comments /* */
-// ============================================================================
-
 func TestLexer_COMMENT_CStyle(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -166,10 +155,6 @@ func TestLexer_COMMENT_SlashNotComment(t *testing.T) {
 		t.Errorf("expected IDENT, got %d", tok.Type)
 	}
 }
-
-// ============================================================================
-// Version comments /*!50000 ... */
-// ============================================================================
 
 func TestLexer_COMMENT_Version_Execute(t *testing.T) {
 	// Version comments with version <= current should execute content
@@ -252,10 +237,6 @@ func TestLexer_COMMENT_Version_NoVersion(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// MY_LEX_END_LONG_COMMENT: Asterisk handling
-// ============================================================================
-
 func TestLexer_COMMENT_Asterisk(t *testing.T) {
 	// Outside of comments, '*' is just multiplication
 	l := NewLexer("a * b")
@@ -301,10 +282,6 @@ func TestLexer_COMMENT_SelectStar(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// Context tests - comments in typical SQL
-// ============================================================================
-
 func TestLexer_COMMENT_InContext(t *testing.T) {
 	l := NewLexer("SELECT /* comment */ a FROM /* another */ t")
 
@@ -348,10 +325,6 @@ func TestLexer_COMMENT_MixedTypes(t *testing.T) {
 		t.Errorf("expected END_OF_INPUT, got %d", tok.Type)
 	}
 }
-
-// ============================================================================
-// Version comment token sequence tests
-// ============================================================================
 
 func TestLexer_COMMENT_Version_FullTokenSequence(t *testing.T) {
 	tests := []struct {

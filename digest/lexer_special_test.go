@@ -4,7 +4,6 @@ import (
 	"testing"
 )
 
-// TestLexer_Special_Semicolon tests semicolon handling
 func TestLexer_Special_Semicolon(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -34,7 +33,6 @@ func TestLexer_Special_Semicolon(t *testing.T) {
 	}
 }
 
-// TestLexer_Special_EOF tests end-of-input handling
 func TestLexer_Special_EOF(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -66,7 +64,6 @@ func TestLexer_Special_EOF(t *testing.T) {
 	}
 }
 
-// TestLexer_Special_RepeatedEOF tests that calling Lex() after EOF returns END_OF_INPUT
 func TestLexer_Special_RepeatedEOF(t *testing.T) {
 	l := NewLexer("SELECT")
 
@@ -95,7 +92,6 @@ func TestLexer_Special_RepeatedEOF(t *testing.T) {
 	}
 }
 
-// TestLexer_Special_RealOrPoint tests the '.' character handling
 func TestLexer_Special_RealOrPoint(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -172,7 +168,6 @@ func TestLexer_Special_RealOrPoint(t *testing.T) {
 	}
 }
 
-// TestLexer_Special_MultipleStatements tests tokenizing multiple statements
 func TestLexer_Special_MultipleStatements(t *testing.T) {
 	input := "SELECT 1; SELECT 2"
 	wantTypes := []int{SELECT_SYM, NUM, int(';'), SELECT_SYM, NUM, END_OF_INPUT}

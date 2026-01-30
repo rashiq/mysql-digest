@@ -2,15 +2,6 @@ package digest
 
 import "testing"
 
-// Phase 12: MY_LEX_IDENT_OR_DOLLAR_QUOTED_TEXT tests
-// MySQL Reference: sql/sql_lex.cc:2138-2172
-//
-// Dollar-quoted strings are used in MySQL 8.0 for stored routine bodies.
-// Format: $$text$$ or $tag$text$tag$
-// - $$ starts an anonymous dollar-quoted string
-// - $tag$ starts a tagged dollar-quoted string (tag must match at end)
-// - $ followed by identifier chars (not $$) is just an identifier
-
 func TestLexer_Dollar_SimpleString(t *testing.T) {
 	// $$text$$ -> DOLLAR_QUOTED_STRING_SYM
 	tests := []struct {

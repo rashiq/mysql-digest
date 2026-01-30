@@ -4,7 +4,6 @@ import (
 	"testing"
 )
 
-// TestLexer_UserVar_At tests the @ character and user variables
 func TestLexer_UserVar_At(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -75,7 +74,6 @@ func TestLexer_UserVar_At(t *testing.T) {
 	}
 }
 
-// TestLexer_UserVar_SystemVar tests @@ system variables
 func TestLexer_UserVar_SystemVar(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -146,7 +144,6 @@ func TestLexer_UserVar_SystemVar(t *testing.T) {
 	}
 }
 
-// TestLexer_UserVar_InContext tests user variables in SQL context
 func TestLexer_UserVar_InContext(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -197,7 +194,6 @@ func TestLexer_UserVar_InContext(t *testing.T) {
 	}
 }
 
-// TestLexer_UserVar_EdgeCases tests edge cases for user/system variables
 func TestLexer_UserVar_EdgeCases(t *testing.T) {
 	tests := []struct {
 		name      string
