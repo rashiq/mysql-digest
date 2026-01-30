@@ -21,7 +21,7 @@ func (r *reducer) reduceUnarySign() {
 	}
 }
 
-// Checks for pattern: VALUE/VALUE_LIST ',' VALUE → VALUE_LIST
+// Checks for pattern: VALUE/VALUE_LIST ',' VALUE -> VALUE_LIST
 func (r *reducer) reduceAfterValue() {
 	p := r.store.peek(3)
 	// p[0]=third-to-last, p[1]=second-to-last, p[2]=last
@@ -75,7 +75,7 @@ func (r *reducer) reduceParenthesizedValue() bool {
 	return false
 }
 
-// reduceRowList handles: ROW ',' ROW → ROW_LIST
+// reduceRowList handles: ROW ',' ROW -> ROW_LIST
 // - Single-value rows: (?) , (?) -> (?), ...
 // - Multi-value rows: (...) , (...) -> (...), ...
 func (r *reducer) reduceRowList() bool {

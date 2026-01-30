@@ -29,6 +29,10 @@ func isDigit(c byte) bool {
 	return c >= '0' && c <= '9'
 }
 
+func isAlnum(c byte) bool {
+	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')
+}
+
 func toUpper(s string) string {
 	b := make([]byte, len(s))
 	for i := 0; i < len(s); i++ {

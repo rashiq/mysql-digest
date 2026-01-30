@@ -38,6 +38,10 @@ func init() {
 	stateHandlers[MY_LEX_LONG_CMP_OP] = (*Lexer).handleLongCmpOp
 	stateHandlers[MY_LEX_BOOL] = (*Lexer).handleBool
 	stateHandlers[MY_LEX_SET_VAR] = (*Lexer).handleSetVar
+	stateHandlers[MY_LEX_USER_END] = (*Lexer).handleUserVariable
+	stateHandlers[MY_LEX_HOSTNAME] = (*Lexer).handleHostname
+	stateHandlers[MY_LEX_SYSTEM_VAR] = (*Lexer).handleSystemVar
+	stateHandlers[MY_LEX_IDENT_OR_KEYWORD] = (*Lexer).handleIdentOrKeyword
 
 	// Identifiers
 	stateHandlers[MY_LEX_IDENT] = (*Lexer).handleIdent

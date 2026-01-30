@@ -8,7 +8,7 @@ import (
 	"os"
 	"strings"
 
-	"mysql-digest/digest"
+	digest "github.com/rashiq/mysql-digest"
 )
 
 func main() {

@@ -1,0 +1,17 @@
+# Binaries
+/mysql-digest
+*.test
+
+# IDE
+.idea/
+
+# OS
+.DS_Store
+
+# mysql server repo
+mysql-server-trunk
+
+# notes
+implementation.md
+state.md
+

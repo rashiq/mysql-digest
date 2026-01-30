@@ -486,6 +486,91 @@ func TestDigest_OptimizerHints(t *testing.T) {
 	}
 }
 
+func TestDigest_UserAndSystemVariables(t *testing.T) {
+	tests := []struct {
+		name     string
+		sql      string
+		wantText string
+	}{
+		// User variables (@var) - variable name normalized to ?
+		{
+			name:     "user variable unquoted",
+			sql:      "SELECT @myvar",
+			wantText: "SELECT @?",
+		},
+		{
+			name:     "user variable assignment",
+			sql:      "SET @x := 5",
+			wantText: "SET @? := ?",
+		},
+		{
+			name:     "user variable with equals",
+			sql:      "SET @x = 10",
+			wantText: "SET @? = ?",
+		},
+		{
+			name:     "user variable single quoted",
+			sql:      "SELECT @'my var'",
+			wantText: "SELECT @?",
+		},
+		{
+			name:     "user variable double quoted",
+			sql:      `SELECT @"my var"`,
+			wantText: "SELECT @?",
+		},
+		{
+			name:     "user variable backtick quoted",
+			sql:      "SELECT @`my var`",
+			wantText: "SELECT @`my var`", // Backtick-quoted preserved as identifier
+		},
+		{
+			name:     "multiple user variables",
+			sql:      "SELECT @a, @b, @c",
+			wantText: "SELECT @? , @? , @?",
+		},
+		{
+			name:     "user variable in expression",
+			sql:      "SELECT @a + @b",
+			wantText: "SELECT @? + @?",
+		},
+		// System variables (@@var) - variable name preserved
+		{
+			name:     "system variable",
+			sql:      "SELECT @@version",
+			wantText: "SELECT @@`version`",
+		},
+		{
+			name:     "system variable session",
+			sql:      "SELECT @@session.sql_mode",
+			wantText: "SELECT @@SESSION . `sql_mode`",
+		},
+		{
+			name:     "system variable global",
+			sql:      "SELECT @@global.max_connections",
+			wantText: "SELECT @@GLOBAL . `max_connections`",
+		},
+		{
+			name:     "set system variable",
+			sql:      "SET @@session.sql_mode = 'STRICT'",
+			wantText: "SET @@SESSION . `sql_mode` = ?",
+		},
+		{
+			name:     "mixed user and system variables",
+			sql:      "SET @result = @@version",
+			wantText: "SET @? = @@`version`",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			d := Compute(tt.sql)
+			if d.Text != tt.wantText {
+				t.Errorf("Compute(%q).Text = %q, want %q", tt.sql, d.Text, tt.wantText)
+			}
+		})
+	}
+}
+
 // Benchmarks for performance testing
 
 func BenchmarkCompute_Simple(b *testing.B) {

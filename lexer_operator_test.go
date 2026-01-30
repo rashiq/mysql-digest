@@ -180,13 +180,12 @@ func TestLexer_OP_InContext(t *testing.T) {
 			[]int{IDENT, SHIFT_RIGHT, NUM, END_OF_INPUT},
 			[]string{"b", ">>", "2", ""},
 		},
-		// Note: @x tokenization requires Phase 11 (USER_END state) - skipped for now
-		// {
-		// 	"SET @x := 5",
-		// 	"SET @x := 5",
-		// 	[]int{SET_SYM, IDENT_QUOTED, SET_VAR, NUM, END_OF_INPUT},
-		// 	[]string{"SET", "@x", ":=", "5", ""},
-		// },
+		{
+			"SET @x := 5",
+			"SET @x := 5",
+			[]int{SET_SYM, int('@'), LEX_HOSTNAME, SET_VAR, NUM, END_OF_INPUT},
+			[]string{"SET", "@", "x", ":=", "5", ""},
+		},
 		{
 			"a & b | c",
 			"a & b | c",

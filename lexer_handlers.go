@@ -240,6 +240,103 @@ func (l *Lexer) handleSetVar() lexResult {
 	return done(Token{Type: SET_VAR, Start: l.tokStart, End: l.pos})
 }
 
+// handleUserVariable handles MY_LEX_USER_END state for user variables (@var, @@var, etc.).
+// This matches MySQL's handling in sql_lexer.cc lines 1206-1221.
+//
+// MySQL behavior:
+// - @ followed by @ → next state is MY_LEX_SYSTEM_VAR (for @@var system variables)
+// - @ followed by string/quoted delimiter → keep as MY_LEX_START (handles naturally)
+// - @ followed by identifier → next state is MY_LEX_HOSTNAME (returns LEX_HOSTNAME token)
+func (l *Lexer) handleUserVariable() lexResult {
+	// '@' has already been consumed by handleStart
+	// Check what follows the @
+	nextState := getStateMap(l.peek())
+
+	switch nextState {
+	case MY_LEX_STRING, MY_LEX_USER_VARIABLE_DELIMITER, MY_LEX_STRING_OR_DELIMITER:
+		// String-quoted variable name (@'var', @`var`, @"var")
+		// Let the normal lexer handle it
+		return doneWithNext(Token{Type: int('@'), Start: l.tokStart, End: l.pos}, MY_LEX_START)
+	case MY_LEX_USER_END:
+		// Another @ follows - this is a system variable (@@var)
+		return doneWithNext(Token{Type: int('@'), Start: l.tokStart, End: l.pos}, MY_LEX_SYSTEM_VAR)
+	default:
+		// Identifier follows - user variable, use MY_LEX_HOSTNAME to return LEX_HOSTNAME
+		return doneWithNext(Token{Type: int('@'), Start: l.tokStart, End: l.pos}, MY_LEX_HOSTNAME)
+	}
+}
+
+// handleHostname handles MY_LEX_HOSTNAME state for user variable names.
+// The variable name after @ is returned as LEX_HOSTNAME token which gets
+// normalized to ? in digest output (since LEX_HOSTNAME is a string literal).
+func (l *Lexer) handleHostname() lexResult {
+	// Scan identifier characters (alphanumeric, '.', '_', '$')
+	l.startToken()
+	for {
+		c := l.peek()
+		if !isAlnum(c) && c != '.' && c != '_' && c != '$' {
+			break
+		}
+		l.skip()
+	}
+
+	if l.tokenLen() == 0 {
+		// No identifier found - just return to start
+		return cont(MY_LEX_START)
+	}
+
+	return done(Token{Type: LEX_HOSTNAME, Start: l.tokStart, End: l.pos})
+}
+
+// handleSystemVar handles MY_LEX_SYSTEM_VAR state for system variables (@@var).
+// Returns the second @ token and sets up to parse the variable name as an identifier.
+func (l *Lexer) handleSystemVar() lexResult {
+	// We're positioned at the second @
+	l.startToken()
+	l.skip() // Skip the second '@'
+
+	// Check if next char is a quoted delimiter (@@`var`)
+	if getStateMap(l.peek()) == MY_LEX_USER_VARIABLE_DELIMITER {
+		return doneWithNext(Token{Type: int('@'), Start: l.tokStart, End: l.pos}, MY_LEX_START)
+	}
+
+	// Otherwise, parse as identifier or keyword
+	return doneWithNext(Token{Type: int('@'), Start: l.tokStart, End: l.pos}, MY_LEX_IDENT_OR_KEYWORD)
+}
+
+// handleIdentOrKeyword handles MY_LEX_IDENT_OR_KEYWORD state.
+// This is used after @@ for system variables.
+func (l *Lexer) handleIdentOrKeyword() lexResult {
+	l.startToken()
+
+	// Scan identifier characters
+	for isIdentChar(l.peek()) {
+		l.skip()
+	}
+
+	length := l.tokenLen()
+	if length == 0 {
+		return cont(MY_LEX_START)
+	}
+
+	// Check if followed by '.' and identifier char
+	if l.peek() == '.' && isIdentChar(l.peekN(1)) {
+		// Check for keyword (like GLOBAL, SESSION)
+		if tokval := l.findKeyword(length); tokval != 0 {
+			return doneWithNext(Token{Type: tokval, Start: l.tokStart, End: l.tokStart + length}, MY_LEX_IDENT_SEP)
+		}
+		return doneWithNext(Token{Type: IDENT, Start: l.tokStart, End: l.tokStart + length}, MY_LEX_IDENT_SEP)
+	}
+
+	// Check if it's a keyword
+	if tokval := l.findKeyword(length); tokval != 0 {
+		return doneWithNext(Token{Type: tokval, Start: l.tokStart, End: l.tokStart + length}, MY_LEX_START)
+	}
+
+	// Return as IDENT
+	return done(Token{Type: IDENT, Start: l.tokStart, End: l.tokStart + length})
+}
+
 func (l *Lexer) handleNumberIdent() lexResult {
 	c := l.input[l.tokStart]
 	// Check for 0x (hex) or 0b (binary) prefix

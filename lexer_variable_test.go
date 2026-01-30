@@ -18,33 +18,40 @@ func TestLexer_UserVar_At(t *testing.T) {
 			[]string{"@", ""},
 		},
 		{
+			// User variable with unquoted identifier returns LEX_HOSTNAME
+			// (matches MySQL sql_lexer.cc MY_LEX_HOSTNAME state)
 			"at with identifier",
 			"@var",
-			[]int{int('@'), IDENT, END_OF_INPUT},
+			[]int{int('@'), LEX_HOSTNAME, END_OF_INPUT},
 			[]string{"@", "var", ""},
 		},
 		{
+			// Single-quoted user variable returns TEXT_STRING
 			"at with quoted string single",
 			"@'var'",
 			[]int{int('@'), TEXT_STRING, END_OF_INPUT},
 			[]string{"@", "'var'", ""},
 		},
 		{
+			// Double-quoted user variable returns TEXT_STRING
 			"at with quoted string double",
 			"@\"var\"",
 			[]int{int('@'), TEXT_STRING, END_OF_INPUT},
 			[]string{"@", "\"var\"", ""},
 		},
 		{
+			// Backtick-quoted user variable returns IDENT_QUOTED
+			// (MySQL preserves these as identifiers, not normalized)
 			"at with backtick",
 			"@`var`",
 			[]int{int('@'), IDENT_QUOTED, END_OF_INPUT},
 			[]string{"@", "`var`", ""},
 		},
 		{
+			// User variable with underscore prefix returns LEX_HOSTNAME
 			"at with underscore var",
 			"@_myvar",
-			[]int{int('@'), IDENT, END_OF_INPUT},
+			[]int{int('@'), LEX_HOSTNAME, END_OF_INPUT},
 			[]string{"@", "_myvar", ""},
 		},
 	}
@@ -153,17 +160,17 @@ func TestLexer_UserVar_InContext(t *testing.T) {
 		{
 			"SELECT @var",
 			"SELECT @var",
-			[]int{SELECT_SYM, int('@'), IDENT, END_OF_INPUT},
+			[]int{SELECT_SYM, int('@'), LEX_HOSTNAME, END_OF_INPUT},
 		},
 		{
 			"SET @var = 5",
 			"SET @var = 5",
-			[]int{SET_SYM, int('@'), IDENT, EQ, NUM, END_OF_INPUT},
+			[]int{SET_SYM, int('@'), LEX_HOSTNAME, EQ, NUM, END_OF_INPUT},
 		},
 		{
 			"SET @var := 5",
 			"SET @var := 5",
-			[]int{SET_SYM, int('@'), IDENT, SET_VAR, NUM, END_OF_INPUT},
+			[]int{SET_SYM, int('@'), LEX_HOSTNAME, SET_VAR, NUM, END_OF_INPUT},
 		},
 		{
 			"SELECT @@version",
@@ -208,12 +215,12 @@ func TestLexer_UserVar_EdgeCases(t *testing.T) {
 		{
 			"at in expression",
 			"@a + @b",
-			[]int{int('@'), IDENT, int('+'), int('@'), IDENT, END_OF_INPUT},
+			[]int{int('@'), LEX_HOSTNAME, int('+'), int('@'), LEX_HOSTNAME, END_OF_INPUT},
 		},
 		{
 			"at with number",
 			"@1var",
-			[]int{int('@'), IDENT, END_OF_INPUT}, // 1var is an identifier starting with digit
+			[]int{int('@'), LEX_HOSTNAME, END_OF_INPUT}, // 1var is a hostname starting with digit
 		},
 	}
 
