@@ -1,4 +1,4 @@
-package digest
+package internal
 
 // TokenKeywords Keyword map derived from sql/lex.h
 var TokenKeywords = map[string]int{

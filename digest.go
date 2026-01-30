@@ -1,46 +1,70 @@
+// Package digest lets you build a query digest just like MySQL does.
+//
+// It normalizes SQL queries by replacing literal values with placeholders
+// and computes a hash digest compatible with MySQL's STATEMENT_DIGEST()
+// and STATEMENT_DIGEST_TEXT() functions.
 package digest
 
-type Digest struct {
-	Hash string
-	Text string
-}
-
-type MySQLVersion int
-
-const (
-	MySQL80 MySQLVersion = iota
-	MySQL84
-	MySQL57
+import (
+	"github.com/rashiq/mysql-digest/internal"
 )
 
-type Options struct {
-	SQLMode   SQLMode      // ANSI_QUOTES, NO_BACKSLASH_ESCAPES
-	MaxLength int          // 0 = unlimited, otherwise truncates with "..."
-	Version   MySQLVersion // MySQL 5.7 uses MD5, MySQL 8+ use SHA-256
+// Digest represents a normalized SQL query and its hash.
+type Digest struct {
+	Hash string // SHA-256 hash (MD5 for MySQL 5.7)
+	Text string // Normalized query text
 }
 
+// MySQLVersion represents the target MySQL version for digest computation.
+type MySQLVersion = internal.MySQLVersion
+
+const (
+	MySQL80 = internal.MySQL80
+	MySQL84 = internal.MySQL84
+	MySQL57 = internal.MySQL57
+)
+
+// SQLMode represents MySQL SQL mode flags that affect parsing.
+type SQLMode = internal.SQLMode
+
+const (
+	// MODE_NO_BACKSLASH_ESCAPES disables backslash as escape character in strings.
+	MODE_NO_BACKSLASH_ESCAPES = internal.MODE_NO_BACKSLASH_ESCAPES
+	// MODE_ANSI_QUOTES treats " as identifier delimiter instead of string delimiter.
+	MODE_ANSI_QUOTES = internal.MODE_ANSI_QUOTES
+)
+
+// Options configures digest computation.
+type Options struct {
+	SQLMode   SQLMode      // SQL mode flags
+	MaxLength int          // 0 = unlimited, otherwise truncates with "..."
+	Version   MySQLVersion // MySQL version (affects hash algorithm and token handling)
+}
+
+// Normalize computes a digest for the given SQL query with optional configuration.
 func Normalize(sql string, opts ...Options) Digest {
 	opt := Options{}
 	if len(opts) > 0 {
 		opt = opts[0]
 	}
 
-	lexer := NewLexer(sql)
+	lexer := internal.NewLexer(sql)
 	lexer.SetSQLMode(opt.SQLMode)
 	lexer.SetDigestVersion(opt.Version)
 
-	store := newTokenStore(opt.Version)
-	reducer := newReducer(store)
-	handler := newTokenHandler(lexer, store, reducer)
+	store := internal.NewTokenStore(opt.Version)
+	reducer := internal.NewReducer(store)
+	handler := internal.NewTokenHandler(lexer, store, reducer)
 
-	handler.processAll()
+	handler.ProcessAll()
 
 	return Digest{
-		Hash: store.computeHash(),
-		Text: store.buildText(opt.MaxLength),
+		Hash: store.ComputeHash(),
+		Text: store.BuildText(opt.MaxLength),
 	}
 }
 
+// Compute is a convenience function that computes a digest with default options.
 func Compute(sql string) Digest {
 	return Normalize(sql)
 }

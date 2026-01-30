@@ -1,4 +1,4 @@
-package digest
+package internal
 
 type tokenHandler struct {
 	lexer   *Lexer
@@ -6,7 +6,8 @@ type tokenHandler struct {
 	reducer *reducer
 }
 
-func newTokenHandler(lexer *Lexer, store *tokenStore, reducer *reducer) *tokenHandler {
+// NewTokenHandler creates a new token handler.
+func NewTokenHandler(lexer *Lexer, store *tokenStore, reducer *reducer) *tokenHandler {
 	return &tokenHandler{
 		lexer:   lexer,
 		store:   store,
@@ -14,7 +15,8 @@ func newTokenHandler(lexer *Lexer, store *tokenStore, reducer *reducer) *tokenHa
 	}
 }
 
-func (h *tokenHandler) processAll() {
+// ProcessAll processes all tokens from the input.
+func (h *tokenHandler) ProcessAll() {
 	for {
 		tok := h.lexer.Lex()
 

@@ -9,10 +9,10 @@ import (
 	"strings"
 
 	digest "github.com/rashiq/mysql-digest"
+	"github.com/rashiq/mysql-digest/internal"
 )
 
 func main() {
-	// Define flags
 	sqlFlag := flag.String("sql", "", "SQL statement to compute digest for")
 	fileFlag := flag.String("file", "", "File containing SQL statement(s)")
 	stdinFlag := flag.Bool("stdin", false, "Read SQL from stdin")
@@ -35,7 +35,6 @@ func main() {
 
 	flag.Parse()
 
-	// Determine input source
 	var sql string
 	var err error
 
@@ -55,7 +54,6 @@ func main() {
 			os.Exit(1)
 		}
 	default:
-		// Check if there are positional arguments
 		if flag.NArg() > 0 {
 			sql = strings.Join(flag.Args(), " ")
 		} else {
@@ -86,14 +84,14 @@ func main() {
 	// Debug output - print tokens
 	if *debugFlag {
 		fmt.Println("Lexer Tokens (from scanner):")
-		l := digest.NewLexer(sql)
+		l := internal.NewLexer(sql)
 		for {
 			tok := l.Lex()
-			if tok.Type == digest.END_OF_INPUT {
+			if tok.Type == internal.END_OF_INPUT {
 				break
 			}
 			rawText := sql[tok.Start:tok.End]
-			normalized := digest.TokenString(tok.Type)
+			normalized := internal.TokenString(tok.Type)
 			if normalized != rawText && normalized != "" && normalized != "(unknown)" {
 				fmt.Printf("  {id=%d norm=%q raw=%q}\n", tok.Type, normalized, rawText)
 			} else {

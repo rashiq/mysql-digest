@@ -1,4 +1,4 @@
-package digest
+package internal
 
 // This file maps MySQL 8.0 token IDs to MySQL 5.7 token IDs.
 //

@@ -1,10 +1,11 @@
-package digest
+package internal
 
 type reducer struct {
 	store *tokenStore
 }
 
-func newReducer(store *tokenStore) *reducer {
+// NewReducer creates a new reducer.
+func NewReducer(store *tokenStore) *reducer {
 	return &reducer{store: store}
 }
 

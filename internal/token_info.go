@@ -1,4 +1,4 @@
-package digest
+package internal
 
 type TokenInfo struct {
 	String      string

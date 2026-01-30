@@ -1,4 +1,4 @@
-package digest
+package internal
 
 func (l *Lexer) lexHintToken() Token {
 	l.startToken()

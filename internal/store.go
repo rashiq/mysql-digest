@@ -1,4 +1,4 @@
-package digest
+package internal
 
 import (
 	"crypto/md5"
@@ -19,7 +19,11 @@ type tokenStore struct {
 	tokenConfig *TokenConfig
 }
 
-func newTokenStore(version MySQLVersion) *tokenStore {
+// TokenStore holds the normalized tokens for digest computation.
+type TokenStore = tokenStore
+
+// NewTokenStore creates a new token store for the given MySQL version.
+func NewTokenStore(version MySQLVersion) *tokenStore {
 	return &tokenStore{
 		tokens:      make([]storedToken, 0, 256),
 		tokenArray:  make([]byte, 0, 1024),
@@ -87,7 +91,8 @@ func (s *tokenStore) translateToken(tokType int) int {
 	return s.tokenConfig.TranslateForHash(tokType)
 }
 
-func (s *tokenStore) computeHash() string {
+// ComputeHash returns the digest hash.
+func (s *tokenStore) ComputeHash() string {
 	if s.version == MySQL57 {
 		hash := md5.Sum(s.tokenArray)
 		return hex.EncodeToString(hash[:])
@@ -96,7 +101,8 @@ func (s *tokenStore) computeHash() string {
 	return hex.EncodeToString(hash[:])
 }
 
-func (s *tokenStore) buildText(maxLen int) string {
+// BuildText returns the normalized query text.
+func (s *tokenStore) BuildText(maxLen int) string {
 	var b strings.Builder
 	addSpace := false
 

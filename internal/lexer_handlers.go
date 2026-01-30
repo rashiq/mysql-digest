@@ -1,4 +1,4 @@
-package digest
+package internal
 
 type lexResult struct {
 	token        Token

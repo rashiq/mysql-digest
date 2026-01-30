@@ -1,4 +1,4 @@
-package digest
+package internal
 
 // Matches MySQL's my_lex_states enum in strings/sql_chars.h
 type LexState int

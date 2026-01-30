@@ -1,4 +1,4 @@
-package digest
+package internal
 
 type StateHandler func(l *Lexer) lexResult
 

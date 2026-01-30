@@ -1,4 +1,4 @@
-package digest
+package internal
 
 // Matches MySQL's int_token() in sql_lex.cc.
 

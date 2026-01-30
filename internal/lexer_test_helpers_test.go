@@ -1,4 +1,4 @@
-package digest
+package internal
 
 func (l *Lexer) MustTokenText(t Token) string {
 	text, err := l.TokenText(t)
