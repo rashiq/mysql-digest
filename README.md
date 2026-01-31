@@ -48,11 +48,7 @@ func main() {
 ### CLI
 
 ```bash
-# From positional argument
 mysql-digest "SELECT * FROM users WHERE id = 123"
-
-# From flag
-mysql-digest --sql "SELECT * FROM users WHERE id = 123"
 
 # From file
 mysql-digest -f query.sql
