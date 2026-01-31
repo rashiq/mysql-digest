@@ -39,8 +39,8 @@ func main() {
 
     // With options
     result = digest.Compute("SELECT * FROM users WHERE id = 123", digest.Options{
-        Version:   digest.MySQL57,  // Produces MD5 hash
-        SQLMode:   digest.AnsiQuotes, // Enable ANSI_QUOTES mode
+        Version: digest.MySQL57, // Produces MD5 hash
+        SQLMode: digest.MODE_ANSI_QUOTES,
     })
 }
 ```
@@ -48,28 +48,28 @@ func main() {
 ### CLI
 
 ```bash
-# From command line argument
-mysql-digest -sql "SELECT * FROM users WHERE id = 123"
+# From positional argument
+mysql-digest "SELECT * FROM users WHERE id = 123"
+
+# From flag
+mysql-digest --sql "SELECT * FROM users WHERE id = 123"
 
 # From file
-mysql-digest -file query.sql
+mysql-digest -f query.sql
 
 # From stdin
 echo "SELECT * FROM users WHERE id = 123" | mysql-digest
 
 # Output formats
-mysql-digest -sql "SELECT 1" -json
-mysql-digest -sql "SELECT 1" -hash-only
-mysql-digest -sql "SELECT 1" -text-only
-
-# Debug mode (show lexer tokens)
-mysql-digest -sql "SELECT 1" -debug
+mysql-digest "SELECT 1" --json
+mysql-digest "SELECT 1" --hash-only
+mysql-digest "SELECT 1" --text-only
 ```
 
 **Example output:**
 
 ```
-DIGEST: 5b79e33af9e9...
+DIGEST: 840a880ebd1642e8a0c4926cfbaf7d4da9616b03025a080fafd43a732800fab5
 DIGEST_TEXT: SELECT * FROM `users` WHERE `id` = ?
 ```
 
