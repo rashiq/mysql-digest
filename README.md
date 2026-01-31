@@ -38,7 +38,7 @@ func main() {
     fmt.Println(result.Text) // SELECT * FROM `users` WHERE `id` = ?
 
     // With options
-    result = digest.Normalize("SELECT * FROM users WHERE id = 123", digest.Options{
+    result = digest.Compute("SELECT * FROM users WHERE id = 123", digest.Options{
         Version:   digest.MySQL57,  // Produces MD5 hash
         SQLMode:   digest.AnsiQuotes, // Enable ANSI_QUOTES mode
     })
