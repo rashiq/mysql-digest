@@ -896,7 +896,7 @@ func TestMySQL57Compatibility(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			d := Normalize(tt.sql, Options{Version: MySQL57})
+			d := Compute(tt.sql, Options{Version: MySQL57})
 			if d.Hash != tt.want57Hash {
 				t.Errorf("MySQL 5.7 hash mismatch for %q:\n  got:  %s\n  want: %s\n  text: %s", tt.sql, d.Hash, tt.want57Hash, d.Text)
 			}
@@ -1080,7 +1080,7 @@ func TestMySQL57ComplexQueries(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			d := Normalize(tt.sql, Options{Version: MySQL57})
+			d := Compute(tt.sql, Options{Version: MySQL57})
 
 			if d.Hash != tt.wantHash {
 				t.Errorf("Hash mismatch:\n  got:  %s\n  want: %s\n  sql:  %s\n  text: %s", d.Hash, tt.wantHash, tt.sql, d.Text)
@@ -1116,7 +1116,7 @@ func TestMySQL57ValueFolding(t *testing.T) {
 	var firstHash string
 	for i, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			d := Normalize(tt.sql, Options{Version: MySQL57})
+			d := Compute(tt.sql, Options{Version: MySQL57})
 			if i == 0 {
 				firstHash = d.Hash
 			} else {
@@ -1148,7 +1148,7 @@ func TestMySQL57MultiRowInsert(t *testing.T) {
 	var firstHash string
 	for i, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			d := Normalize(tt.sql, Options{Version: MySQL57})
+			d := Compute(tt.sql, Options{Version: MySQL57})
 			if i == 0 {
 				firstHash = d.Hash
 			} else {
