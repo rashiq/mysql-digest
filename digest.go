@@ -41,8 +41,8 @@ type Options struct {
 	Version   MySQLVersion // MySQL version (affects hash algorithm and token handling)
 }
 
-// Normalize computes a digest for the given SQL query with optional configuration.
-func Normalize(sql string, opts ...Options) Digest {
+// Compute is a convenience function that computes a digest with default options.
+func Compute(sql string, opts ...Options) Digest {
 	opt := Options{}
 	if len(opts) > 0 {
 		opt = opts[0]
@@ -62,9 +62,4 @@ func Normalize(sql string, opts ...Options) Digest {
 		Hash: store.ComputeHash(),
 		Text: store.BuildText(opt.MaxLength),
 	}
-}
-
-// Compute is a convenience function that computes a digest with default options.
-func Compute(sql string) Digest {
-	return Normalize(sql)
 }
