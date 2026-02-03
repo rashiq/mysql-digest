@@ -41,7 +41,7 @@ type Options struct {
 	Version   MySQLVersion // MySQL version (affects hash algorithm and token handling)
 }
 
-// Compute is a convenience function that computes a digest with default options.
+// Compute computes a digest with default options, if no options specified.
 func Compute(sql string, opts ...Options) Digest {
 	opt := Options{}
 	if len(opts) > 0 {
