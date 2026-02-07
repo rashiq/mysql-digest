@@ -51,7 +51,10 @@ func run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	result := digest.Compute(sql)
+	result, err := digest.Compute(sql)
+	if err != nil {
+		return fmt.Errorf("computing digest: %w", err)
+	}
 
 	return output(result)
 }

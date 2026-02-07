@@ -12,8 +12,7 @@ func NewReducer(store *tokenStore) *reducer {
 // Absorbs unary +/- signs before numeric literals.
 func (r *reducer) reduceUnarySign() {
 	for {
-		p := r.store.peek(2)
-		last, prev := p[1], p[0]
+		prev, last := r.store.peek2()
 		if (last == '+' || last == '-') && startsExpression(prev) {
 			r.store.pop(1)
 		} else {
@@ -24,9 +23,8 @@ func (r *reducer) reduceUnarySign() {
 
 // Checks for pattern: VALUE/VALUE_LIST ',' VALUE -> VALUE_LIST
 func (r *reducer) reduceAfterValue() {
-	p := r.store.peek(3)
-	// p[0]=third-to-last, p[1]=second-to-last, p[2]=last
-	if p[1] == ',' && isValueOrValueList(p[0]) {
+	first, comma, _ := r.store.peek3()
+	if comma == ',' && isValueOrValueList(first) {
 		r.store.pop(3)
 		r.store.push(TOK_GENERIC_VALUE_LIST)
 	}
@@ -56,8 +54,7 @@ func (r *reducer) reduceParenthesizedValue() bool {
 		return false
 	}
 
-	p := r.store.peek(3)
-	first, mid, last := p[0], p[1], p[2]
+	first, mid, last := r.store.peek3()
 
 	if first != '(' || last != ')' {
 		return false
@@ -84,8 +81,7 @@ func (r *reducer) reduceRowList() bool {
 		return false
 	}
 
-	p := r.store.peek(3)
-	first, comma, last := p[0], p[1], p[2]
+	first, comma, last := r.store.peek3()
 
 	if comma != ',' {
 		return false
@@ -116,8 +112,7 @@ func (r *reducer) reduceInClause() bool {
 		return false
 	}
 
-	p := r.store.peek(2)
-	before, last := p[0], p[1]
+	before, last := r.store.peek2()
 
 	if before != IN_SYM {
 		return false

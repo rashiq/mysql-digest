@@ -44,7 +44,10 @@ func TestDigest_LiteralReplacement(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			d := Compute(tt.sql)
+			d, err := Compute(tt.sql)
+			if err != nil {
+				t.Fatalf("Compute(%q) error: %v", tt.sql, err)
+			}
 			if d.Text != tt.wantText {
 				t.Errorf("Compute(%q).Text = %q, want %q", tt.sql, d.Text, tt.wantText)
 			}
@@ -87,7 +90,10 @@ func TestDigest_StringReplacement(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			d := Compute(tt.sql)
+			d, err := Compute(tt.sql)
+			if err != nil {
+				t.Fatalf("Compute(%q) error: %v", tt.sql, err)
+			}
 			if d.Text != tt.wantText {
 				t.Errorf("Compute(%q).Text = %q, want %q", tt.sql, d.Text, tt.wantText)
 			}
@@ -130,7 +136,10 @@ func TestDigest_INClauseCollapsing(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			d := Compute(tt.sql)
+			d, err := Compute(tt.sql)
+			if err != nil {
+				t.Fatalf("Compute(%q) error: %v", tt.sql, err)
+			}
 			if d.Text != tt.wantText {
 				t.Errorf("Compute(%q).Text = %q, want %q", tt.sql, d.Text, tt.wantText)
 			}
@@ -173,7 +182,10 @@ func TestDigest_IdentifierPreservation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			d := Compute(tt.sql)
+			d, err := Compute(tt.sql)
+			if err != nil {
+				t.Fatalf("Compute(%q) error: %v", tt.sql, err)
+			}
 			if d.Text != tt.wantText {
 				t.Errorf("Compute(%q).Text = %q, want %q", tt.sql, d.Text, tt.wantText)
 			}
@@ -191,7 +203,10 @@ func TestDigest_HashConsistency(t *testing.T) {
 
 	var firstHash string
 	for i, sql := range sqls {
-		d := Compute(sql)
+		d, err := Compute(sql)
+		if err != nil {
+			t.Fatalf("Compute(%q) error: %v", sql, err)
+		}
 		if i == 0 {
 			firstHash = d.Hash
 		} else {
@@ -202,15 +217,18 @@ func TestDigest_HashConsistency(t *testing.T) {
 	}
 
 	// Different normalized SQL should produce different hash
-	d1 := Compute("SELECT * FROM users WHERE id = 1")
-	d2 := Compute("SELECT * FROM orders WHERE id = 1")
+	d1, _ := Compute("SELECT * FROM users WHERE id = 1")
+	d2, _ := Compute("SELECT * FROM orders WHERE id = 1")
 	if d1.Hash == d2.Hash {
 		t.Errorf("Different queries should have different hashes")
 	}
 }
 
 func TestDigest_HashFormat(t *testing.T) {
-	d := Compute("SELECT 1")
+	d, err := Compute("SELECT 1")
+	if err != nil {
+		t.Fatalf("Compute error: %v", err)
+	}
 	// SHA-256 hash should be 64 hex characters
 	if len(d.Hash) != 64 {
 		t.Errorf("Hash length = %d, want 64", len(d.Hash))
@@ -248,7 +266,10 @@ func TestDigest_Comments(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			d := Compute(tt.sql)
+			d, err := Compute(tt.sql)
+			if err != nil {
+				t.Fatalf("Compute(%q) error: %v", tt.sql, err)
+			}
 			if d.Text != tt.wantText {
 				t.Errorf("Compute(%q).Text = %q, want %q", tt.sql, d.Text, tt.wantText)
 			}
@@ -286,7 +307,10 @@ func TestDigest_HexAndBinary(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			d := Compute(tt.sql)
+			d, err := Compute(tt.sql)
+			if err != nil {
+				t.Fatalf("Compute(%q) error: %v", tt.sql, err)
+			}
 			if d.Text != tt.wantText {
 				t.Errorf("Compute(%q).Text = %q, want %q", tt.sql, d.Text, tt.wantText)
 			}
@@ -334,7 +358,10 @@ func TestDigest_VALUESCollapsing(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			d := Compute(tt.sql)
+			d, err := Compute(tt.sql)
+			if err != nil {
+				t.Fatalf("Compute(%q) error: %v", tt.sql, err)
+			}
 			if d.Text != tt.wantText {
 				t.Errorf("Compute(%q).Text = %q, want %q", tt.sql, d.Text, tt.wantText)
 			}
@@ -367,7 +394,10 @@ func TestDigest_NullHandling(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			d := Compute(tt.sql)
+			d, err := Compute(tt.sql)
+			if err != nil {
+				t.Fatalf("Compute(%q) error: %v", tt.sql, err)
+			}
 			if d.Text != tt.wantText {
 				t.Errorf("Compute(%q).Text = %q, want %q", tt.sql, d.Text, tt.wantText)
 			}
@@ -415,7 +445,10 @@ func TestDigest_ComplexQueries(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			d := Compute(tt.sql)
+			d, err := Compute(tt.sql)
+			if err != nil {
+				t.Fatalf("Compute(%q) error: %v", tt.sql, err)
+			}
 			if d.Text != tt.wantText {
 				t.Errorf("Compute(%q).Text = %q, want %q", tt.sql, d.Text, tt.wantText)
 			}
@@ -478,7 +511,10 @@ func TestDigest_OptimizerHints(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			d := Compute(tt.sql)
+			d, err := Compute(tt.sql)
+			if err != nil {
+				t.Fatalf("Compute(%q) error: %v", tt.sql, err)
+			}
 			if d.Text != tt.wantText {
 				t.Errorf("Compute(%q).Text = %q, want %q", tt.sql, d.Text, tt.wantText)
 			}
@@ -563,7 +599,10 @@ func TestDigest_UserAndSystemVariables(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			d := Compute(tt.sql)
+			d, err := Compute(tt.sql)
+			if err != nil {
+				t.Fatalf("Compute(%q) error: %v", tt.sql, err)
+			}
 			if d.Text != tt.wantText {
 				t.Errorf("Compute(%q).Text = %q, want %q", tt.sql, d.Text, tt.wantText)
 			}
@@ -577,7 +616,7 @@ func BenchmarkCompute_Simple(b *testing.B) {
 	sql := "SELECT * FROM users WHERE id = 1"
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		Compute(sql)
+		Compute(sql) //nolint:errcheck
 	}
 }
 
@@ -585,7 +624,7 @@ func BenchmarkCompute_Medium(b *testing.B) {
 	sql := "SELECT u.id, u.name, o.total FROM users u JOIN orders o ON u.id = o.user_id WHERE o.status = 'active' AND o.total > 100 ORDER BY o.created_at DESC LIMIT 10"
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		Compute(sql)
+		Compute(sql) //nolint:errcheck
 	}
 }
 
@@ -602,7 +641,7 @@ func BenchmarkCompute_Complex(b *testing.B) {
 		LIMIT 100 OFFSET 0`
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		Compute(sql)
+		Compute(sql) //nolint:errcheck
 	}
 }
 
@@ -610,7 +649,7 @@ func BenchmarkCompute_LargeIN(b *testing.B) {
 	sql := "SELECT * FROM users WHERE id IN (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30)"
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		Compute(sql)
+		Compute(sql) //nolint:errcheck
 	}
 }
 
@@ -618,7 +657,7 @@ func BenchmarkCompute_Insert(b *testing.B) {
 	sql := "INSERT INTO users (name, email, age, status) VALUES ('John', 'john@example.com', 25, 'active'), ('Jane', 'jane@example.com', 30, 'active'), ('Bob', 'bob@example.com', 35, 'inactive')"
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		Compute(sql)
+		Compute(sql) //nolint:errcheck
 	}
 }
 
@@ -772,7 +811,10 @@ func TestMySQLCompatibility(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			d := Compute(tt.sql)
+			d, err := Compute(tt.sql)
+			if err != nil {
+				t.Fatalf("Compute(%q) error: %v", tt.sql, err)
+			}
 			if d.Hash != tt.want8Hash {
 				t.Errorf("Hash mismatch for %q:\n  got:  %s\n  want: %s\n  text: %s", tt.sql, d.Hash, tt.want8Hash, d.Text)
 			}
@@ -896,7 +938,10 @@ func TestMySQL57Compatibility(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			d := Compute(tt.sql, Options{Version: MySQL57})
+			d, err := Compute(tt.sql, Options{Version: MySQL57})
+			if err != nil {
+				t.Fatalf("Compute(%q) error: %v", tt.sql, err)
+			}
 			if d.Hash != tt.want57Hash {
 				t.Errorf("MySQL 5.7 hash mismatch for %q:\n  got:  %s\n  want: %s\n  text: %s", tt.sql, d.Hash, tt.want57Hash, d.Text)
 			}
@@ -1080,7 +1125,10 @@ func TestMySQL57ComplexQueries(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			d := Compute(tt.sql, Options{Version: MySQL57})
+			d, err := Compute(tt.sql, Options{Version: MySQL57})
+			if err != nil {
+				t.Fatalf("Compute(%q) error: %v", tt.sql, err)
+			}
 
 			if d.Hash != tt.wantHash {
 				t.Errorf("Hash mismatch:\n  got:  %s\n  want: %s\n  sql:  %s\n  text: %s", d.Hash, tt.wantHash, tt.sql, d.Text)
@@ -1116,7 +1164,10 @@ func TestMySQL57ValueFolding(t *testing.T) {
 	var firstHash string
 	for i, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			d := Compute(tt.sql, Options{Version: MySQL57})
+			d, err := Compute(tt.sql, Options{Version: MySQL57})
+			if err != nil {
+				t.Fatalf("Compute(%q) error: %v", tt.sql, err)
+			}
 			if i == 0 {
 				firstHash = d.Hash
 			} else {
@@ -1148,7 +1199,10 @@ func TestMySQL57MultiRowInsert(t *testing.T) {
 	var firstHash string
 	for i, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			d := Compute(tt.sql, Options{Version: MySQL57})
+			d, err := Compute(tt.sql, Options{Version: MySQL57})
+			if err != nil {
+				t.Fatalf("Compute(%q) error: %v", tt.sql, err)
+			}
 			if i == 0 {
 				firstHash = d.Hash
 			} else {
@@ -1157,9 +1211,7 @@ func TestMySQL57MultiRowInsert(t *testing.T) {
 				}
 			}
 
-			// Verify text contains the folding comment
 			if i > 0 && d.Text != "" {
-				// Multi-row should have comment
 				if d.Text == "" {
 					t.Error("Expected folding comment in multi-row INSERT")
 				}

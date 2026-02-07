@@ -9,13 +9,11 @@ import (
 	"github.com/rashiq/mysql-digest/internal"
 )
 
-// Digest represents a normalized SQL query and its hash.
 type Digest struct {
-	Hash string // SHA-256 hash (MD5 for MySQL 5.7)
-	Text string // Normalized query text
+	Hash string
+	Text string
 }
 
-// MySQLVersion represents the target MySQL version for digest computation.
 type MySQLVersion = internal.MySQLVersion
 
 const (
@@ -24,30 +22,44 @@ const (
 	MySQL57 = internal.MySQL57
 )
 
-// SQLMode represents MySQL SQL mode flags that affect parsing.
 type SQLMode = internal.SQLMode
 
 const (
-	// MODE_NO_BACKSLASH_ESCAPES disables backslash as escape character in strings.
 	MODE_NO_BACKSLASH_ESCAPES = internal.MODE_NO_BACKSLASH_ESCAPES
-	// MODE_ANSI_QUOTES treats " as identifier delimiter instead of string delimiter.
-	MODE_ANSI_QUOTES = internal.MODE_ANSI_QUOTES
+	MODE_ANSI_QUOTES          = internal.MODE_ANSI_QUOTES
 )
 
-// Options configures digest computation.
 type Options struct {
-	SQLMode   SQLMode      // SQL mode flags
-	MaxLength int          // 0 = unlimited, otherwise truncates with "..."
-	Version   MySQLVersion // MySQL version (affects hash algorithm and token handling)
+	SQLMode   SQLMode
+	MaxLength int
+	Version   MySQLVersion
 }
 
-// Compute computes a digest with default options, if no options specified.
-func Compute(sql string, opts ...Options) Digest {
-	opt := Options{}
+type Digester struct {
+	opts Options
+}
+
+func NewDigester(opts ...Options) *Digester {
+	var o Options
+	if len(opts) > 0 {
+		o = opts[0]
+	}
+	return &Digester{opts: o}
+}
+
+func (d *Digester) Digest(sql string) (Digest, error) {
+	return compute(sql, d.opts)
+}
+
+func Compute(sql string, opts ...Options) (Digest, error) {
+	var opt Options
 	if len(opts) > 0 {
 		opt = opts[0]
 	}
+	return compute(sql, opt)
+}
 
+func compute(sql string, opt Options) (Digest, error) {
 	lexer := internal.NewLexer(sql)
 	lexer.SetSQLMode(opt.SQLMode)
 	lexer.SetDigestVersion(opt.Version)
@@ -56,10 +68,10 @@ func Compute(sql string, opts ...Options) Digest {
 	reducer := internal.NewReducer(store)
 	handler := internal.NewTokenHandler(lexer, store, reducer)
 
-	handler.ProcessAll()
+	err := handler.ProcessAll()
 
 	return Digest{
 		Hash: store.ComputeHash(),
 		Text: store.BuildText(opt.MaxLength),
-	}
+	}, err
 }

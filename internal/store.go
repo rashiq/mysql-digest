@@ -64,16 +64,35 @@ func (s *tokenStore) pop(n int) {
 	s.tokenArray = s.tokenArray[:len(s.tokenArray)-bytesToRemove]
 }
 
-func (s *tokenStore) peek(n int) []int {
-	result := make([]int, n)
-	for i := 0; i < n; i++ {
-		result[i] = TOK_UNUSED
+// peek2 returns the last two token types (second-to-last, last).
+// Returns TOK_UNUSED for missing positions.
+func (s *tokenStore) peek2() (int, int) {
+	n := len(s.tokens)
+	t1, t0 := TOK_UNUSED, TOK_UNUSED
+	if n >= 1 {
+		t0 = s.tokens[n-1].tokType
 	}
-	storeLen := len(s.tokens)
-	for i := 0; i < n && i < storeLen; i++ {
-		result[n-1-i] = s.tokens[storeLen-1-i].tokType
+	if n >= 2 {
+		t1 = s.tokens[n-2].tokType
 	}
-	return result
+	return t1, t0
+}
+
+// peek3 returns the last three token types (third-to-last, second-to-last, last).
+// Returns TOK_UNUSED for missing positions.
+func (s *tokenStore) peek3() (int, int, int) {
+	n := len(s.tokens)
+	t2, t1, t0 := TOK_UNUSED, TOK_UNUSED, TOK_UNUSED
+	if n >= 1 {
+		t0 = s.tokens[n-1].tokType
+	}
+	if n >= 2 {
+		t1 = s.tokens[n-2].tokType
+	}
+	if n >= 3 {
+		t2 = s.tokens[n-3].tokType
+	}
+	return t2, t1, t0
 }
 
 func (s *tokenStore) last() int {

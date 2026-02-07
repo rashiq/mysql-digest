@@ -15,24 +15,25 @@ func NewTokenHandler(lexer *Lexer, store *tokenStore, reducer *reducer) *tokenHa
 	}
 }
 
-// ProcessAll processes all tokens from the input.
-func (h *tokenHandler) ProcessAll() {
+func (h *tokenHandler) ProcessAll() error {
 	for {
 		tok := h.lexer.Lex()
 
 		if tok.Type == END_OF_INPUT {
 			h.store.removeTrailingSemicolon()
-			break
+			return nil
 		}
 		if tok.Type == ABORT_SYM {
-			break
+			return tok.Err
 		}
 
-		h.handleToken(tok)
+		if err := h.handleToken(tok); err != nil {
+			return err
+		}
 	}
 }
 
-func (h *tokenHandler) handleToken(tok Token) {
+func (h *tokenHandler) handleToken(tok Token) error {
 	switch {
 	case isNumericLiteral(tok.Type):
 		h.handleNumericLiteral()
@@ -47,12 +48,13 @@ func (h *tokenHandler) handleToken(tok Token) {
 		h.handleCloseParen()
 
 	case tok.Type == IDENT || tok.Type == IDENT_QUOTED:
-		h.handleIdentifier(tok)
+		return h.handleIdentifier(tok)
 
 	default:
 		h.store.push(tok.Type)
 		h.reducer.reduceAll()
 	}
+	return nil
 }
 
 // Absorbs any preceding unary +/- signs before normalizing.
@@ -82,15 +84,16 @@ func (h *tokenHandler) handleCloseParen() {
 	h.reducer.reduceAll()
 }
 
-func (h *tokenHandler) handleIdentifier(tok Token) {
+func (h *tokenHandler) handleIdentifier(tok Token) error {
 	text, err := h.lexer.TokenText(tok)
 	if err != nil {
-		return
+		return err
 	}
 	if tok.Type == IDENT_QUOTED {
 		text = stripIdentifierQuotes(text)
 	}
 	h.store.pushIdent(text)
+	return nil
 }
 
 // isNullKeywordContext checks if NULL should be kept as a keyword.
@@ -107,8 +110,8 @@ func (h *tokenHandler) isNullKeywordContext() bool {
 
 	// Check for IS NOT pattern
 	if last == NOT_SYM && h.store.len() >= 2 {
-		p := h.store.peek(2)
-		if p[0] == IS {
+		prev, _ := h.store.peek2()
+		if prev == IS {
 			return true
 		}
 	}

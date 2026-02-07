@@ -2,8 +2,6 @@ package internal
 
 // Matches MySQL's int_token() in sql_lex.cc.
 
-type IntegerClassifier struct{}
-
 const (
 	maxLong             = "2147483647" // 2^31 - 1
 	maxLongLen          = 10
@@ -15,11 +13,7 @@ const (
 	maxUnsignedLongLen  = 20
 )
 
-func NewIntegerClassifier() *IntegerClassifier {
-	return &IntegerClassifier{}
-}
-
-func (c *IntegerClassifier) Classify(s string) int {
+func ClassifyInteger(s string) int {
 	if len(s) == 0 {
 		return NUM
 	}
@@ -53,10 +47,10 @@ func (c *IntegerClassifier) Classify(s string) int {
 		return NUM
 	}
 
-	return c.classifyByMagnitude(str, length, neg)
+	return classifyByMagnitude(str, length, neg)
 }
 
-func (c *IntegerClassifier) classifyByMagnitude(str string, length int, neg bool) int {
+func classifyByMagnitude(str string, length int, neg bool) int {
 	var cmp string
 	var smaller, bigger int
 
@@ -100,10 +94,10 @@ func (c *IntegerClassifier) classifyByMagnitude(str string, length int, neg bool
 	}
 
 	// Compare digit by digit
-	return c.compareDigits(str, cmp, smaller, bigger)
+	return compareDigits(str, cmp, smaller, bigger)
 }
 
-func (c *IntegerClassifier) compareDigits(str, cmp string, smaller, bigger int) int {
+func compareDigits(str, cmp string, smaller, bigger int) int {
 	for i := 0; i < len(str) && i < len(cmp); i++ {
 		if str[i] < cmp[i] {
 			return smaller
@@ -113,10 +107,4 @@ func (c *IntegerClassifier) compareDigits(str, cmp string, smaller, bigger int) 
 		}
 	}
 	return smaller // Equal means it fits in the smaller type
-}
-
-var defaultClassifier = NewIntegerClassifier()
-
-func ClassifyInteger(s string) int {
-	return defaultClassifier.Classify(s)
 }
