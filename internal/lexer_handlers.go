@@ -1,23 +1,29 @@
 package internal
 
+type lexResultKind int
+
+const (
+	lexContinue     lexResultKind = iota // transition to nextState within current Lex()
+	lexEmit                              // emit token, done
+	lexEmitAndPrime                      // emit token AND set starting state for next Lex()
+)
+
 type lexResult struct {
-	token        Token
-	done         bool
-	nextState    LexState
-	setNextLex   bool
-	nextLexState LexState
+	kind      lexResultKind
+	token     Token
+	nextState LexState // lexContinue: state to continue to; lexEmitAndPrime: next Lex() start state
 }
 
 func done(t Token) lexResult {
-	return lexResult{token: t, done: true}
+	return lexResult{kind: lexEmit, token: t}
 }
 
 func doneWithNext(t Token, nextLex LexState) lexResult {
-	return lexResult{token: t, done: true, setNextLex: true, nextLexState: nextLex}
+	return lexResult{kind: lexEmitAndPrime, token: t, nextState: nextLex}
 }
 
 func cont(state LexState) lexResult {
-	return lexResult{done: false, nextState: state}
+	return lexResult{kind: lexContinue, nextState: state}
 }
 
 func (l *Lexer) handleStart() lexResult {

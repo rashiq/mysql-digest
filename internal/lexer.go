@@ -197,12 +197,14 @@ func (l *Lexer) Lex() Token {
 			return Token{Type: int(c), Start: l.tokStart, End: l.pos}
 		}
 
-		if result.setNextLex {
-			l.nextState = result.nextLexState
-		}
-		if result.done {
+		switch result.kind {
+		case lexEmit:
 			return result.token
+		case lexEmitAndPrime:
+			l.nextState = result.nextState
+			return result.token
+		case lexContinue:
+			state = result.nextState
 		}
-		state = result.nextState
 	}
 }
