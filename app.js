@@ -18,7 +18,7 @@ function loadFromURL() {
   if (query !== null) {
     elements.sql.value = query;
   }
-  if (version !== null && ["0", "1", "2"].includes(version)) {
+  if (version !== null && ["0", "1", "2", "3"].includes(version)) {
     elements.version.value = version;
   }
 }
@@ -30,7 +30,7 @@ function updateURL() {
   if (sql) {
     params.set("query", sql);
   }
-  if (version !== "0") {
+  if (version !== "2") {
     params.set("version", version);
   }
   const qs = params.toString();
