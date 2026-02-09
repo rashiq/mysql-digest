@@ -900,9 +900,11 @@ const (
 	EXTERNAL_SYM                               = 1235
 	MATERIALIZED_SYM                           = 1236
 	GUIDED_SYM                                 = 1237
-	KEYWORD_USED_AS_IDENT                      = 1238
-	KEYWORD_USED_AS_KEYWORD                    = 1239
-	CONDITIONLESS_JOIN                         = 1240
-	PREFER_PARENTHESES                         = 1241
-	EMPTY_FROM_CLAUSE                          = 1242
+	SETS_SYM                                   = 1238
+	VALIDATE_SYM                               = 1239
+	KEYWORD_USED_AS_IDENT                      = 1240
+	KEYWORD_USED_AS_KEYWORD                    = 1241
+	CONDITIONLESS_JOIN                         = 1242
+	PREFER_PARENTHESES                         = 1243
+	EMPTY_FROM_CLAUSE                          = 1244
 )

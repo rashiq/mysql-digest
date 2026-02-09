@@ -19,6 +19,7 @@ type MySQLVersion = internal.MySQLVersion
 const (
 	MySQL80 = internal.MySQL80
 	MySQL84 = internal.MySQL84
+	MySQL90 = internal.MySQL90
 	MySQL57 = internal.MySQL57
 )
 

@@ -1596,6 +1596,8 @@ var mysql80To57TokenMap = map[int]int{
 	EXTERNAL_SYM:                               m57TOK_UNUSED, // New in MySQL 8.0
 	MATERIALIZED_SYM:                           m57TOK_UNUSED, // New in MySQL 8.0
 	GUIDED_SYM:                                 m57TOK_UNUSED, // New in MySQL 8.0
+	SETS_SYM:                                   m57TOK_UNUSED, // New in MySQL 9.0
+	VALIDATE_SYM:                               m57TOK_UNUSED, // New in MySQL 9.0
 	KEYWORD_USED_AS_IDENT:                      m57TOK_UNUSED, // New in MySQL 8.0
 	KEYWORD_USED_AS_KEYWORD:                    m57TOK_UNUSED, // New in MySQL 8.0
 	CONDITIONLESS_JOIN:                         m57TOK_UNUSED, // New in MySQL 8.0

@@ -6,5 +6,6 @@ type MySQLVersion int
 const (
 	MySQL80 MySQLVersion = iota
 	MySQL84
+	MySQL90
 	MySQL57
 )
