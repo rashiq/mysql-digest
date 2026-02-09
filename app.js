@@ -11,7 +11,35 @@ const elements = {
 
 let ready = false;
 
+function loadFromURL() {
+  const params = new URLSearchParams(window.location.search);
+  const query = params.get("query");
+  const version = params.get("version");
+  if (query !== null) {
+    elements.sql.value = query;
+  }
+  if (version !== null && ["0", "1", "2"].includes(version)) {
+    elements.version.value = version;
+  }
+}
+
+function updateURL() {
+  const sql = elements.sql.value.trim();
+  const version = elements.version.value;
+  const params = new URLSearchParams();
+  if (sql) {
+    params.set("query", sql);
+  }
+  if (version !== "0") {
+    params.set("version", version);
+  }
+  const qs = params.toString();
+  const url = window.location.pathname + (qs ? "?" + qs : "");
+  history.replaceState(null, "", url);
+}
+
 async function init() {
+  loadFromURL();
   const go = new Go();
   const result = await WebAssembly.instantiateStreaming(
     fetch("digest.wasm"),
@@ -25,6 +53,8 @@ async function init() {
 
 function compute() {
   if (!ready) return;
+
+  updateURL();
 
   const sql = elements.sql.value.trim();
   if (!sql) {
@@ -48,6 +78,10 @@ function compute() {
   elements.output.classList.remove("hidden");
   elements.text.textContent = result.text;
   elements.hash.textContent = result.hash;
+}
+
+function copyLink() {
+  navigator.clipboard.writeText(window.location.href);
 }
 
 function copyText(id) {
