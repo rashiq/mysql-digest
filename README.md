@@ -33,26 +33,18 @@ import (
 )
 
 func main() {
-    result, err := digest.Compute("SELECT * FROM users WHERE id = 123")
-    if err != nil {
-        log.Fatal(err)
-    }
+    result, _ := digest.Compute("SELECT * FROM users WHERE id = 123")
     fmt.Println(result.Hash) // SHA-256 hash
     fmt.Println(result.Text) // SELECT * FROM `users` WHERE `id` = ?
 
     // With options
-    result, err = digest.Compute("SELECT * FROM users WHERE id = 123", digest.Options{
+    result, _ = digest.Compute("SELECT * FROM users WHERE id = 123", digest.Options{
         Version: digest.MySQL57, // Produces MD5 hash
         SQLMode: digest.MODE_ANSI_QUOTES,
     })
-    if err != nil {
-        log.Fatal(err)
-    }
 
     d := digest.NewDigester(digest.Options{Version: digest.MySQL84})
-    r1, _ := d.Digest("SELECT * FROM t WHERE id = 1")
-    r2, _ := d.Digest("INSERT INTO t VALUES (1, 2)")
-    fmt.Println(r1.Hash, r2.Hash)
+    d.Digest("SELECT * FROM t WHERE id = 1")
 }
 ```
 
