@@ -1,8 +1,9 @@
 # mysql-digest
 
-A library for computing MySQL query digests, matching the one in MySQL's Performance Schema. 
+A library for computing unique fingerprints for MySQL queries, matching the one in MySQL's Performance Schema. 
 
 It reimplements MySQL's sql lexer to accurately normalize queries.
+
 
 
 ## Installation
