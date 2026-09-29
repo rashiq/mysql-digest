@@ -54,7 +54,6 @@ func (l *Lexer) handleAsterisks() lexResult {
 	if l.inVersionComment {
 		if c == '*' && l.peek() == '/' {
 			l.skip()
-			l.skip()
 			l.inVersionComment = false
 			return cont(MY_LEX_START)
 		}
