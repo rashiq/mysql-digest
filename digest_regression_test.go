@@ -47,3 +47,20 @@ func TestQuotedHintIdentifiers(t *testing.T) {
 		t.Fatalf("got %+v, want %+v", got, want)
 	}
 }
+
+func TestHintAfterValue(t *testing.T) {
+	for _, value := range []string{"1", "'text'", "*", "(1)"} {
+		sql := "SELECT " + value
+		want, err := Compute(sql)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got, err := Compute(sql + " /*+ MAX_EXECUTION_TIME(1000) */")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got != want {
+			t.Errorf("%q: got %+v, want %+v", sql, got, want)
+		}
+	}
+}

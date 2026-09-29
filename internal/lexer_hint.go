@@ -44,12 +44,12 @@ func (l *Lexer) lexHintClose() Token {
 	l.skip() // *
 	l.skip() // /
 	l.inHintComment = false
-	return l.returnToken(Token{Type: TOK_HINT_COMMENT_CLOSE, Start: l.tokStart, End: l.pos})
+	return Token{Type: TOK_HINT_COMMENT_CLOSE, Start: l.tokStart, End: l.pos}
 }
 
 func (l *Lexer) lexHintEOF() Token {
 	l.inHintComment = false
-	return l.returnToken(l.abort(ErrUnterminatedHint))
+	return l.abort(ErrUnterminatedHint)
 }
 
 func (l *Lexer) lexHintIdentOrKeyword() Token {
@@ -61,25 +61,25 @@ func (l *Lexer) lexHintIdentOrKeyword() Token {
 	// Check if it's a hint keyword
 	text := l.input[l.tokStart : l.tokStart+length]
 	if tok, ok := HintKeywords[toUpper(text)]; ok {
-		return l.returnToken(Token{Type: tok, Start: l.tokStart, End: l.pos})
+		return Token{Type: tok, Start: l.tokStart, End: l.pos}
 	}
 
 	// Return as IDENT
-	return l.returnToken(Token{Type: IDENT, Start: l.tokStart, End: l.pos})
+	return Token{Type: IDENT, Start: l.tokStart, End: l.pos}
 }
 
 func (l *Lexer) lexHintNumber() Token {
 	for isDigit(l.peek()) {
 		l.skip()
 	}
-	return l.returnToken(Token{Type: NUM, Start: l.tokStart, End: l.pos})
+	return Token{Type: NUM, Start: l.tokStart, End: l.pos}
 }
 
 func (l *Lexer) lexHintString() Token {
 	for {
 		ch := l.peek()
 		if l.eof() {
-			return l.returnToken(l.abort(ErrUnterminatedString))
+			return l.abort(ErrUnterminatedString)
 		}
 		l.skip()
 		if ch == '\'' {
@@ -91,14 +91,14 @@ func (l *Lexer) lexHintString() Token {
 			break
 		}
 	}
-	return l.returnToken(Token{Type: TEXT_STRING, Start: l.tokStart, End: l.pos})
+	return Token{Type: TEXT_STRING, Start: l.tokStart, End: l.pos}
 }
 
 func (l *Lexer) lexHintQuotedIdent() Token {
 	for {
 		ch := l.peek()
 		if l.eof() {
-			return l.returnToken(l.abort(ErrUnterminatedIdent))
+			return l.abort(ErrUnterminatedIdent)
 		}
 		l.skip()
 		if ch == '`' {
@@ -110,9 +110,9 @@ func (l *Lexer) lexHintQuotedIdent() Token {
 			break
 		}
 	}
-	return l.returnToken(Token{Type: IDENT_QUOTED, Start: l.tokStart, End: l.pos})
+	return Token{Type: IDENT_QUOTED, Start: l.tokStart, End: l.pos}
 }
 
 func (l *Lexer) lexHintChar(c byte) Token {
-	return l.returnToken(Token{Type: int(c), Start: l.tokStart, End: l.pos})
+	return Token{Type: int(c), Start: l.tokStart, End: l.pos}
 }

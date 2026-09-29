@@ -186,7 +186,7 @@ func (l *Lexer) intToken(length int) int {
 
 func (l *Lexer) Lex() Token {
 	if l.inHintComment {
-		return l.lexHintToken()
+		return l.returnToken(l.lexHintToken())
 	}
 
 	l.startToken()
@@ -201,15 +201,15 @@ func (l *Lexer) Lex() Token {
 			if l.tokStart < len(l.input) {
 				c = l.input[l.tokStart]
 			}
-			return Token{Type: int(c), Start: l.tokStart, End: l.pos}
+			return l.returnToken(Token{Type: int(c), Start: l.tokStart, End: l.pos})
 		}
 
 		switch result.kind {
 		case lexEmit:
-			return result.token
+			return l.returnToken(result.token)
 		case lexEmitAndPrime:
 			l.nextState = result.nextState
-			return result.token
+			return l.returnToken(result.token)
 		case lexContinue:
 			state = result.nextState
 		}

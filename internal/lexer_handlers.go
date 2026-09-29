@@ -158,9 +158,9 @@ func (l *Lexer) handleIdent() lexResult {
 	if l.peek() == '.' && isIdentChar(l.peekN(1)) {
 		// Still do keyword lookup for system variable scopes
 		if tokval := l.findKeyword(length); tokval != 0 {
-			return doneWithNext(l.returnToken(Token{Type: tokval, Start: l.tokStart, End: l.tokStart + length}), MY_LEX_IDENT_SEP)
+			return doneWithNext(Token{Type: tokval, Start: l.tokStart, End: l.tokStart + length}, MY_LEX_IDENT_SEP)
 		}
-		return doneWithNext(l.returnToken(Token{Type: IDENT, Start: l.tokStart, End: l.tokStart + length}), MY_LEX_IDENT_SEP)
+		return doneWithNext(Token{Type: IDENT, Start: l.tokStart, End: l.tokStart + length}, MY_LEX_IDENT_SEP)
 	}
 
 	l.backup() // Unget the non-ident char
@@ -168,12 +168,12 @@ func (l *Lexer) handleIdent() lexResult {
 	// Check if it's a keyword
 	if tokval := l.findKeyword(length); tokval != 0 {
 		l.skip() // Re-skip the character we ungot
-		return doneWithNext(l.returnToken(Token{Type: tokval, Start: l.tokStart, End: l.tokStart + length}), MY_LEX_START)
+		return doneWithNext(Token{Type: tokval, Start: l.tokStart, End: l.tokStart + length}, MY_LEX_START)
 	}
 	l.skip() // Re-skip
 
 	// Return as IDENT
-	return done(l.returnToken(Token{Type: IDENT, Start: l.tokStart, End: l.tokStart + length}))
+	return done(Token{Type: IDENT, Start: l.tokStart, End: l.tokStart + length})
 }
 
 // handleIdentSep handles MY_LEX_IDENT_SEP state, dot between identifiers.
@@ -621,7 +621,7 @@ func (l *Lexer) handleDollarQuoted() lexResult {
 	}
 
 	length := l.tokenLen()
-	return done(l.returnToken(Token{Type: IDENT, Start: l.tokStart, End: l.tokStart + length}))
+	return done(Token{Type: IDENT, Start: l.tokStart, End: l.tokStart + length})
 }
 
 func (l *Lexer) handleLongComment() lexResult {
@@ -651,7 +651,7 @@ func (l *Lexer) handleLongComment() lexResult {
 // handleDivisionOp handles the case where '/' is not followed by '*'.
 // This is the division operator, not a comment.
 func (l *Lexer) handleDivisionOp(c byte) lexResult {
-	return done(l.returnToken(Token{Type: int(c), Start: l.tokStart, End: l.pos}))
+	return done(Token{Type: int(c), Start: l.tokStart, End: l.pos})
 }
 
 func (l *Lexer) handleOptimizerHint() lexResult {
@@ -661,7 +661,7 @@ func (l *Lexer) handleOptimizerHint() lexResult {
 	if TokenIsHintable(l.lastToken) {
 		// Enter hint mode
 		l.inHintComment = true
-		return done(l.returnToken(Token{Type: TOK_HINT_COMMENT_OPEN, Start: l.tokStart, End: l.pos}))
+		return done(Token{Type: TOK_HINT_COMMENT_OPEN, Start: l.tokStart, End: l.pos})
 	}
 
 	// Not after hintable keyword - treat as regular comment
@@ -754,7 +754,7 @@ func (l *Lexer) scanDollarQuotedString(tag string) Token {
 	for !l.eof() {
 		if l.pos+closingLen <= len(l.input) && l.input[l.pos:l.pos+closingLen] == closingDelim {
 			l.pos += closingLen
-			return l.returnToken(Token{Type: DOLLAR_QUOTED_STRING_SYM, Start: l.tokStart, End: l.pos})
+			return Token{Type: DOLLAR_QUOTED_STRING_SYM, Start: l.tokStart, End: l.pos}
 		}
 		l.pos++
 	}
