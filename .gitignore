@@ -9,10 +9,19 @@
 # OS
 .DS_Store
 
+.env
+.env.*
+*.pem
+*.key
+*.crt
+credentials.json
+node_modules/
+__pycache__/
+.venv/
+
 # mysql server repo
 mysql-server-trunk
 
 # notes
 implementation.md
 state.md
-
