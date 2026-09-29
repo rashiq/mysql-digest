@@ -3,6 +3,7 @@ package internal
 import (
 	"crypto/md5"
 	"crypto/sha256"
+	"encoding/binary"
 	"encoding/hex"
 	"strings"
 	"unicode/utf8"
@@ -15,39 +16,22 @@ type storedToken struct {
 
 type tokenStore struct {
 	tokens      []storedToken
-	tokenArray  []byte
 	tokenConfig *TokenConfig
 }
 
-// TokenStore holds the normalized tokens for digest computation.
-type TokenStore = tokenStore
-
 func NewTokenStore(config *TokenConfig) *tokenStore {
 	return &tokenStore{
-		tokens:      make([]storedToken, 0, 256),
-		tokenArray:  make([]byte, 0, 1024),
+		tokens:      make([]storedToken, 0, 32),
 		tokenConfig: config,
 	}
 }
 
 func (s *tokenStore) push(tokType int) {
 	s.tokens = append(s.tokens, storedToken{tokType: tokType})
-	binTok := s.translateToken(tokType)
-	s.tokenArray = append(s.tokenArray,
-		byte(binTok&0xff),
-		byte((binTok>>8)&0xff))
 }
 
-// Binary format for identifiers: 2 bytes (token) + 2 bytes (length) + N bytes (text).
 func (s *tokenStore) pushIdent(text string) {
 	s.tokens = append(s.tokens, storedToken{tokType: TOK_IDENT, text: text})
-	binTok := s.translateToken(TOK_IDENT)
-	s.tokenArray = append(s.tokenArray,
-		byte(binTok&0xff),
-		byte((binTok>>8)&0xff),
-		byte(len(text)&0xff),
-		byte((len(text)>>8)&0xff))
-	s.tokenArray = append(s.tokenArray, text...)
 }
 
 func (s *tokenStore) pop(n int) {
@@ -55,11 +39,6 @@ func (s *tokenStore) pop(n int) {
 		return
 	}
 	s.tokens = s.tokens[:len(s.tokens)-n]
-	bytesToRemove := n * 2
-	if bytesToRemove > len(s.tokenArray) {
-		bytesToRemove = len(s.tokenArray)
-	}
-	s.tokenArray = s.tokenArray[:len(s.tokenArray)-bytesToRemove]
 }
 
 // peek2 returns the last two token types (second-to-last, last).
@@ -104,17 +83,27 @@ func (s *tokenStore) len() int {
 	return len(s.tokens)
 }
 
-func (s *tokenStore) translateToken(tokType int) int {
-	return s.tokenConfig.TranslateForHash(tokType)
-}
-
 // ComputeHash returns the digest hash.
 func (s *tokenStore) ComputeHash() string {
+	size := 2 * len(s.tokens)
+	for _, tok := range s.tokens {
+		if tok.tokType == TOK_IDENT {
+			size += 2 + len(tok.text)
+		}
+	}
+	data := make([]byte, 0, size)
+	for _, tok := range s.tokens {
+		data = binary.LittleEndian.AppendUint16(data, uint16(s.tokenConfig.TranslateForHash(tok.tokType)))
+		if tok.tokType == TOK_IDENT {
+			data = binary.LittleEndian.AppendUint16(data, uint16(len(tok.text)))
+			data = append(data, tok.text...)
+		}
+	}
 	if s.tokenConfig.Version == MySQL57 {
-		hash := md5.Sum(s.tokenArray)
+		hash := md5.Sum(data)
 		return hex.EncodeToString(hash[:])
 	}
-	hash := sha256.Sum256(s.tokenArray)
+	hash := sha256.Sum256(data)
 	return hex.EncodeToString(hash[:])
 }
 
