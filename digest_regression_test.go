@@ -21,3 +21,15 @@ func TestVersionCommentBoundary(t *testing.T) {
 		}
 	}
 }
+
+func TestUnterminatedInput(t *testing.T) {
+	for _, sql := range []string{
+		"SELECT $$unterminated", "SELECT $tag$unterminated",
+		"SELECT /*!50000 1", "SELECT /*! 1", "SELECT /* comment",
+		"SELECT /*+ INDEX(t", "SELECT 'text", "SELECT `name",
+	} {
+		if _, err := Compute(sql); err == nil {
+			t.Errorf("%q: expected an error", sql)
+		}
+	}
+}

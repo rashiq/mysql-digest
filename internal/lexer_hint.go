@@ -49,12 +49,7 @@ func (l *Lexer) lexHintClose() Token {
 
 func (l *Lexer) lexHintEOF() Token {
 	l.inHintComment = false
-	return l.returnToken(Token{
-		Type:  ABORT_SYM,
-		Start: l.tokStart,
-		End:   l.pos,
-		Err:   NewLexError(l.tokStart, ErrUnterminatedHint, ""),
-	})
+	return l.returnToken(l.abort(ErrUnterminatedHint))
 }
 
 func (l *Lexer) lexHintIdentOrKeyword() Token {
@@ -84,12 +79,7 @@ func (l *Lexer) lexHintString() Token {
 	for {
 		ch := l.peek()
 		if l.eof() {
-			return l.returnToken(Token{
-				Type:  ABORT_SYM,
-				Start: l.tokStart,
-				End:   l.pos,
-				Err:   NewLexError(l.tokStart, ErrUnterminatedString, ""),
-			})
+			return l.returnToken(l.abort(ErrUnterminatedString))
 		}
 		l.skip()
 		if ch == '\'' {
@@ -108,12 +98,7 @@ func (l *Lexer) lexHintQuotedIdent() Token {
 	for {
 		ch := l.peek()
 		if l.eof() {
-			return l.returnToken(Token{
-				Type:  ABORT_SYM,
-				Start: l.tokStart,
-				End:   l.pos,
-				Err:   NewLexError(l.tokStart, ErrUnterminatedIdent, ""),
-			})
+			return l.returnToken(l.abort(ErrUnterminatedIdent))
 		}
 		l.skip()
 		if ch == '`' {

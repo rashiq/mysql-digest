@@ -171,6 +171,13 @@ func (l *Lexer) returnToken(t Token) Token {
 	return t
 }
 
+func (l *Lexer) abort(message string) Token {
+	return Token{
+		Type: ABORT_SYM, Start: l.tokStart, End: l.pos,
+		Err: NewLexError(l.tokStart, message, ""),
+	}
+}
+
 // Matches MySQL's int_token() in sql_lex.cc.
 func (l *Lexer) intToken(length int) int {
 	str := l.input[l.tokStart : l.tokStart+length]

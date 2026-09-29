@@ -41,6 +41,9 @@ func (l *Lexer) handleSkip() lexResult {
 }
 
 func (l *Lexer) handleEOL() lexResult {
+	if l.inVersionComment {
+		return done(l.abort(ErrUnterminatedComment))
+	}
 	return done(Token{Type: END_OF_INPUT, Start: l.tokStart, End: l.pos})
 }
 
@@ -466,31 +469,16 @@ func (l *Lexer) handleHexNumber() lexResult {
 			break
 		}
 		if c == 0 {
-			return done(Token{
-				Type:  ABORT_SYM,
-				Start: l.tokStart,
-				End:   l.pos,
-				Err:   NewLexError(l.tokStart, ErrInvalidHexLiteral, ""),
-			})
+			return done(l.abort(ErrInvalidHexLiteral))
 		}
 		if !isHexDigit(c) {
-			return done(Token{
-				Type:  ABORT_SYM,
-				Start: l.tokStart,
-				End:   l.pos,
-				Err:   NewLexError(l.tokStart, ErrInvalidHexLiteral, ""),
-			})
+			return done(l.abort(ErrInvalidHexLiteral))
 		}
 	}
 	// Valid hex requires even number of hex digits
 	length := l.tokenLen()
 	if (length % 2) == 0 {
-		return done(Token{
-			Type:  ABORT_SYM,
-			Start: l.tokStart,
-			End:   l.pos,
-			Err:   NewLexError(l.tokStart, ErrInvalidHexLiteral, ""),
-		})
+		return done(l.abort(ErrInvalidHexLiteral))
 	}
 	return done(Token{Type: HEX_NUM, Start: l.tokStart, End: l.pos})
 }
@@ -504,20 +492,10 @@ func (l *Lexer) handleBinNumber() lexResult {
 			break
 		}
 		if c == 0 {
-			return done(Token{
-				Type:  ABORT_SYM,
-				Start: l.tokStart,
-				End:   l.pos,
-				Err:   NewLexError(l.tokStart, ErrInvalidBinaryLiteral, ""),
-			})
+			return done(l.abort(ErrInvalidBinaryLiteral))
 		}
 		if c != '0' && c != '1' {
-			return done(Token{
-				Type:  ABORT_SYM,
-				Start: l.tokStart,
-				End:   l.pos,
-				Err:   NewLexError(l.tokStart, ErrInvalidBinaryLiteral, ""),
-			})
+			return done(l.abort(ErrInvalidBinaryLiteral))
 		}
 	}
 	return done(Token{Type: BIN_NUM, Start: l.tokStart, End: l.pos})
@@ -570,12 +548,7 @@ func (l *Lexer) scanQuoted(sep byte, mode QuoteScanMode, tokenType int) lexResul
 		c := l.advance()
 		if c == 0 {
 			// Unterminated quoted literal
-			return done(Token{
-				Type:  ABORT_SYM,
-				Start: l.tokStart,
-				End:   l.pos,
-				Err:   NewLexError(l.tokStart, ErrUnterminatedString, l.input),
-			})
+			return done(l.abort(ErrUnterminatedString))
 		}
 
 		// Handle backslash escapes in string mode
@@ -733,12 +706,7 @@ func (l *Lexer) handleBlockComment() lexResult {
 
 func (l *Lexer) consumeBlockComment() lexResult {
 	if !l.scanComment() {
-		return done(Token{
-			Type:  ABORT_SYM,
-			Start: l.tokStart,
-			End:   l.pos,
-			Err:   NewLexError(l.tokStart, ErrUnterminatedComment, l.input),
-		})
+		return done(l.abort(ErrUnterminatedComment))
 	}
 	return cont(MY_LEX_START)
 }
@@ -790,5 +758,5 @@ func (l *Lexer) scanDollarQuotedString(tag string) Token {
 		}
 		l.pos++
 	}
-	return l.returnToken(Token{Type: ABORT_SYM, Start: l.tokStart, End: l.pos})
+	return l.abort(ErrUnterminatedDollar)
 }
