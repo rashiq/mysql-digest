@@ -130,3 +130,22 @@ func TestTextLimit(t *testing.T) {
 		}
 	}
 }
+
+func TestParameterDigest(t *testing.T) {
+	for _, version := range []MySQLVersion{MySQL57, MySQL80, MySQL84, MySQL90} {
+		d := NewDigester(Options{Version: version})
+		want, err := d.Digest("SELECT * FROM t WHERE id = 1")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := d.Digest("SELECT 'unfinished"); err == nil {
+			t.Fatal("expected an error")
+		}
+		for _, sql := range []string{want.Text, "SELECT * FROM t WHERE id = 2"} {
+			got, err := d.Digest(sql)
+			if err != nil || got != want {
+				t.Errorf("version %d, %q: got %+v, %v; want %+v", version, sql, got, err, want)
+			}
+		}
+	}
+}

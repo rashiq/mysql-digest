@@ -29,7 +29,6 @@ package main
 
 import (
     "fmt"
-    "log"
     digest "github.com/rashiq/mysql-digest"
 )
 
@@ -72,6 +71,17 @@ mysql-digest "SELECT 1" --text-only
 DIGEST: 840a880ebd1642e8a0c4926cfbaf7d4da9616b03025a080fafd43a732800fab5
 DIGEST_TEXT: SELECT * FROM `users` WHERE `id` = ?
 ```
+
+## Behavior
+
+- The default version is MySQL 8.0. Set `Options.Version` to select 5.7, 8.4, or 9.0.
+- The version comment thresholds are 5.7.0, 8.0.0, 8.4.0, and 9.0.0. Patch-level thresholds are not configurable.
+- Unsupported versions and SQL modes return an error. Always check the error before you use a result.
+- Parameter markers (`?`) and literal values produce the same digest.
+- A `Digester` has no mutable query state. You can reuse it across calls and goroutines.
+- Digest text is display output. Collapsed lists such as `IN (...)` cannot reproduce the original hash.
+- `MaxLength` limits display bytes, including `...`, without a partial UTF-8 character. Nonpositive values disable this limit.
+- `MaxLength` does not change the hash or limit input processing. MySQL token-buffer truncation is not implemented.
 
 ## License
 

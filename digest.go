@@ -74,6 +74,7 @@ func compute(sql string, opt Options) (Digest, error) {
 	lexer := internal.NewLexer(sql)
 	lexer.SetSQLMode(opt.SQLMode)
 	lexer.SetTokenConfig(config)
+	lexer.SetPrepareMode(true)
 
 	store := internal.NewTokenStore(config)
 	reducer := internal.NewReducer(store)
