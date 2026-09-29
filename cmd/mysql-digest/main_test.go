@@ -32,7 +32,7 @@ func TestCommand(t *testing.T) {
 		{args: []string{"SELECT 1", "--sql", "SELECT 2"}, fail: true},
 		{args: []string{"--sql", ""}, input: "SELECT 1", fail: true},
 		{args: []string{"SELECT 'unfinished"}, fail: true},
-		{fail: true},
+		{args: []string{}, fail: true},
 	} {
 		cmd := newCommand()
 		cmd.SetArgs(tc.args)
