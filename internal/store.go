@@ -15,20 +15,17 @@ type storedToken struct {
 type tokenStore struct {
 	tokens      []storedToken
 	tokenArray  []byte
-	version     MySQLVersion
 	tokenConfig *TokenConfig
 }
 
 // TokenStore holds the normalized tokens for digest computation.
 type TokenStore = tokenStore
 
-// NewTokenStore creates a new token store for the given MySQL version.
-func NewTokenStore(version MySQLVersion) *tokenStore {
+func NewTokenStore(config *TokenConfig) *tokenStore {
 	return &tokenStore{
 		tokens:      make([]storedToken, 0, 256),
 		tokenArray:  make([]byte, 0, 1024),
-		version:     version,
-		tokenConfig: GetTokenConfig(version),
+		tokenConfig: config,
 	}
 }
 
@@ -112,7 +109,7 @@ func (s *tokenStore) translateToken(tokType int) int {
 
 // ComputeHash returns the digest hash.
 func (s *tokenStore) ComputeHash() string {
-	if s.version == MySQL57 {
+	if s.tokenConfig.Version == MySQL57 {
 		hash := md5.Sum(s.tokenArray)
 		return hex.EncodeToString(hash[:])
 	}

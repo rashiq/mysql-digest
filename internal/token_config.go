@@ -1,10 +1,11 @@
 package internal
 
 type TokenConfig struct {
-	Version      MySQLVersion
-	Keywords     map[string]int
-	TokenStrings map[int]string
-	HashTokens   map[int]int
+	Version       MySQLVersion
+	ServerVersion int
+	Keywords      map[string]int
+	TokenStrings  map[int]string
+	HashTokens    map[int]int
 }
 
 func (c *TokenConfig) LookupKeyword(word string) int {
@@ -55,8 +56,10 @@ func GetTokenConfig(v MySQLVersion) *TokenConfig {
 		return configMySQL84
 	case MySQL90:
 		return configMySQL90
-	default:
+	case MySQL80:
 		return configMySQL80
+	default:
+		return nil
 	}
 }
 
@@ -193,24 +196,31 @@ func buildMySQL80Config() *TokenConfig {
 		OBSOLETE_TOKEN_990: "MASTER_ZSTD_COMPRESSION_LEVEL",
 		OBSOLETE_TOKEN_992: "MASTER_TLS_CIPHERSUITES",
 	}
+	keywords := buildKeywordsFor(MySQL80)
+	for token, keyword := range tokenStrings {
+		keywords[keyword] = token
+	}
 	return &TokenConfig{
-		Version:      MySQL80,
-		Keywords:     buildKeywordsFor(MySQL80),
-		TokenStrings: tokenStrings,
+		Version:       MySQL80,
+		ServerVersion: 80000,
+		Keywords:      keywords,
+		TokenStrings:  tokenStrings,
 	}
 }
 
 func buildMySQL84Config() *TokenConfig {
 	return &TokenConfig{
-		Version:  MySQL84,
-		Keywords: buildKeywordsFor(MySQL84),
+		Version:       MySQL84,
+		ServerVersion: 80400,
+		Keywords:      buildKeywordsFor(MySQL84),
 	}
 }
 
 func buildMySQL90Config() *TokenConfig {
 	return &TokenConfig{
-		Version:  MySQL90,
-		Keywords: buildKeywordsFor(MySQL90),
+		Version:       MySQL90,
+		ServerVersion: 90000,
+		Keywords:      buildKeywordsFor(MySQL90),
 	}
 }
 
@@ -261,9 +271,10 @@ func buildMySQL57Config() *TokenConfig {
 	}
 
 	return &TokenConfig{
-		Version:      MySQL57,
-		Keywords:     keywords,
-		TokenStrings: tokenStrings,
-		HashTokens:   mysql80To57TokenMap,
+		Version:       MySQL57,
+		ServerVersion: 50700,
+		Keywords:      keywords,
+		TokenStrings:  tokenStrings,
+		HashTokens:    mysql80To57TokenMap,
 	}
 }

@@ -60,22 +60,14 @@ type Lexer struct {
 	inHintComment    bool
 	inVersionComment bool
 	lastToken        int
-	digestVersion    MySQLVersion
 	tokenConfig      *TokenConfig
-}
-
-var mysqlVersionMap = map[MySQLVersion]int{
-	MySQL84: 80400, // MySQL 8.4.0
-	MySQL80: 80000, // MySQL 8.0.0
-	MySQL57: 50700, // MySQL 5.7.0
 }
 
 func NewLexer(input string) *Lexer {
 	return &Lexer{
-		input:         input,
-		nextState:     MY_LEX_START,
-		digestVersion: MySQL84,
-		tokenConfig:   GetTokenConfig(MySQL84),
+		input:       input,
+		nextState:   MY_LEX_START,
+		tokenConfig: GetTokenConfig(MySQL80),
 	}
 }
 
@@ -83,13 +75,8 @@ func (l *Lexer) SetSQLMode(mode SQLMode) {
 	l.sqlMode = mode
 }
 
-func (l *Lexer) SetDigestVersion(version MySQLVersion) {
-	l.digestVersion = version
-	l.tokenConfig = GetTokenConfig(version)
-}
-
-func (l *Lexer) mysqlVersionInt() int {
-	return mysqlVersionMap[l.digestVersion]
+func (l *Lexer) SetTokenConfig(config *TokenConfig) {
+	l.tokenConfig = config
 }
 
 func (l *Lexer) SetPrepareMode(enabled bool) {

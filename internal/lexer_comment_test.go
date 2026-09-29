@@ -174,6 +174,7 @@ func TestLexer_COMMENT_Version_Execute(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			l := NewLexer(tt.input)
+			l.SetTokenConfig(GetTokenConfig(MySQL84))
 			tok := l.Lex()
 			if tok.Type != tt.firstType {
 				t.Errorf("expected type %d, got %d", tt.firstType, tok.Type)

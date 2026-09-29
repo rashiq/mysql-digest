@@ -6,6 +6,8 @@
 package digest
 
 import (
+	"fmt"
+
 	"github.com/rashiq/mysql-digest/internal"
 )
 
@@ -61,11 +63,18 @@ func Compute(sql string, opts ...Options) (Digest, error) {
 }
 
 func compute(sql string, opt Options) (Digest, error) {
+	config := internal.GetTokenConfig(opt.Version)
+	if config == nil {
+		return Digest{}, fmt.Errorf("unsupported MySQL version: %d", opt.Version)
+	}
+	if opt.SQLMode & ^(MODE_NO_BACKSLASH_ESCAPES|MODE_ANSI_QUOTES) != 0 {
+		return Digest{}, fmt.Errorf("unsupported SQL mode: %d", opt.SQLMode)
+	}
 	lexer := internal.NewLexer(sql)
 	lexer.SetSQLMode(opt.SQLMode)
-	lexer.SetDigestVersion(opt.Version)
+	lexer.SetTokenConfig(config)
 
-	store := internal.NewTokenStore(opt.Version)
+	store := internal.NewTokenStore(config)
 	reducer := internal.NewReducer(store)
 	handler := internal.NewTokenHandler(lexer, store, reducer)
 

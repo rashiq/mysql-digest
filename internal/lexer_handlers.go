@@ -680,7 +680,7 @@ func (l *Lexer) handleVersionComment() lexResult {
 		l.skipN(digitCount)
 
 		// Check if version is <= configured MySQL version
-		if version <= l.mysqlVersionInt() {
+		if version <= l.tokenConfig.ServerVersion {
 			// Execute the content as code - restart lexing
 			l.inVersionComment = true
 			return cont(MY_LEX_START)

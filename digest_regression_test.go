@@ -1,6 +1,9 @@
 package digest
 
-import "testing"
+import (
+	"fmt"
+	"testing"
+)
 
 func TestVersionCommentBoundary(t *testing.T) {
 	for _, pair := range [][2]string{
@@ -73,6 +76,36 @@ func TestNationalStringEscapes(t *testing.T) {
 			if (err == nil) != (wantErr == nil) || (err == nil && got != want) {
 				t.Errorf("mode %d, %s: got %+v, %v; want %+v, %v", mode, literal, got, err, want, wantErr)
 			}
+		}
+	}
+}
+
+func TestVersionConfiguration(t *testing.T) {
+	for _, tc := range []struct {
+		version MySQLVersion
+		server  int
+		keyword string
+	}{
+		{MySQL57, 50700, "SQL_CACHE"},
+		{MySQL80, 80000, "MASTER_HOST"},
+		{MySQL84, 80400, "QUALIFY"},
+		{MySQL90, 90000, "VECTOR"},
+	} {
+		for _, offset := range []int{0, 1} {
+			sql := fmt.Sprintf("SELECT /*!%d %s */ 1", tc.server+offset, tc.keyword)
+			want := "SELECT ?"
+			if offset == 0 {
+				want = "SELECT " + tc.keyword + " ?"
+			}
+			got, err := Compute(sql, Options{Version: tc.version})
+			if err != nil || got.Text != want {
+				t.Errorf("version %d, %q: got %q, %v; want %q", tc.version, sql, got.Text, err, want)
+			}
+		}
+	}
+	for _, opts := range []Options{{Version: -1}, {Version: 4}, {SQLMode: 4}} {
+		if _, err := Compute("SELECT 1", opts); err == nil {
+			t.Errorf("%+v: expected an error", opts)
 		}
 	}
 }

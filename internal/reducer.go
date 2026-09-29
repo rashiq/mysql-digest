@@ -104,7 +104,7 @@ func (r *reducer) reduceRowList() bool {
 
 // reduceInClause handles: IN ROW -> IN (...)
 func (r *reducer) reduceInClause() bool {
-	if r.store.version == MySQL57 {
+	if r.store.tokenConfig.Version == MySQL57 {
 		return false
 	}
 
