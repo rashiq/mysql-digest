@@ -3,6 +3,7 @@ package digest
 import (
 	"fmt"
 	"testing"
+	"unicode/utf8"
 )
 
 func TestVersionCommentBoundary(t *testing.T) {
@@ -106,6 +107,26 @@ func TestVersionConfiguration(t *testing.T) {
 	for _, opts := range []Options{{Version: -1}, {Version: 4}, {SQLMode: 4}} {
 		if _, err := Compute("SELECT 1", opts); err == nil {
 			t.Errorf("%+v: expected an error", opts)
+		}
+	}
+}
+
+func TestTextLimit(t *testing.T) {
+	const sql = "SELECT `名`"
+	want, err := Compute(sql)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for limit := -1; limit <= len(want.Text)+1; limit++ {
+		got, err := Compute(sql, Options{MaxLength: limit})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got.Hash != want.Hash || !utf8.ValidString(got.Text) || (limit > 0 && len(got.Text) > limit) {
+			t.Errorf("limit %d: invalid result %+v", limit, got)
+		}
+		if (limit <= 0 || limit >= len(want.Text)) && got.Text != want.Text {
+			t.Errorf("limit %d: unexpected truncation %q", limit, got.Text)
 		}
 	}
 }

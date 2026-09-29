@@ -33,7 +33,8 @@ const (
 )
 
 type Options struct {
-	SQLMode   SQLMode
+	SQLMode SQLMode
+	// MaxLength limits text bytes, including the ellipsis. Nonpositive values disable the limit. The hash is unchanged.
 	MaxLength int
 	Version   MySQLVersion
 }

@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"strings"
+	"unicode/utf8"
 )
 
 type storedToken struct {
@@ -136,7 +137,14 @@ func (s *tokenStore) BuildText(maxLen int) string {
 
 	result := b.String()
 	if maxLen > 0 && len(result) > maxLen {
-		result = result[:maxLen] + "..."
+		if maxLen <= 3 {
+			return strings.Repeat(".", maxLen)
+		}
+		end := maxLen - 3
+		for end > 0 && !utf8.RuneStart(result[end]) {
+			end--
+		}
+		result = result[:end] + "..."
 	}
 	return result
 }
