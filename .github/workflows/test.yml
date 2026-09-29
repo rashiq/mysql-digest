@@ -11,7 +11,10 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        go-version: ['1.22', '1.23', '1.24']
+        go-version: ['1.24.x', 'stable']
+
+    env:
+      GOTOOLCHAIN: local
 
     steps:
       - uses: actions/checkout@v4
@@ -29,6 +32,22 @@ jobs:
 
       - name: Run tests
         run: go test -v -race -coverprofile=coverage.out ./...
+
+      - name: Check code
+        run: |
+          go vet ./...
+          test -z "$(gofmt -l .)"
+
+      - name: Check generated token names
+        run: |
+          go generate ./internal
+          git diff --exit-code -- internal/token_names.go
+
+      - name: Test WebAssembly
+        run: GOOS=js GOARCH=wasm go test -exec "$(go env GOROOT)/lib/wasm/go_js_wasm_exec" ./cmd/wasm
+
+      - name: Build WebAssembly
+        run: GOOS=js GOARCH=wasm go build -trimpath -o /tmp/digest.wasm ./cmd/wasm
 
       - name: Upload coverage
         uses: actions/upload-artifact@v4
