@@ -30,7 +30,7 @@ function updateURL() {
   if (sql) {
     params.set("query", sql);
   }
-  if (version !== "2") {
+  if (version !== "0") {
     params.set("version", version);
   }
   const qs = params.toString();
@@ -42,13 +42,21 @@ async function init() {
   loadFromURL();
   const go = new Go();
   const result = await WebAssembly.instantiateStreaming(
-    fetch("digest.wasm"),
+    fetch("digest.wasm?v=0.1.0"),
     go.importObject
   );
-  go.run(result.instance);
+  go.run(result.instance).catch(showError);
   ready = true;
   elements.loading.classList.add("hidden");
   compute();
+}
+
+function showError(error) {
+  ready = false;
+  elements.loading.classList.add("hidden");
+  elements.output.classList.add("hidden");
+  elements.error.classList.remove("hidden");
+  elements.errorMessage.textContent = error.message || String(error);
 }
 
 function compute() {
@@ -98,4 +106,4 @@ function debounce(fn, delay) {
 elements.sql.addEventListener("input", () => debounce(compute, 150));
 elements.version.addEventListener("change", compute);
 
-init();
+init().catch(showError);

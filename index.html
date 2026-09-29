@@ -45,7 +45,7 @@
             >
               <option value="2">MySQL 9.0</option>
               <option value="1">MySQL 8.4</option>
-              <option value="0">MySQL 8.0</option>
+              <option value="0" selected>MySQL 8.0</option>
               <option value="3">MySQL 5.7</option>
             </select>
           </div>
@@ -70,6 +70,7 @@
             </button>
           </div>
           <pre id="text" class="bg-gray-50 p-3 rounded-md font-mono text-sm text-gray-800 whitespace-pre-wrap break-all"></pre>
+          <p class="mt-2 text-xs text-gray-500">Display output only. Collapsed lists cannot reproduce the original hash.</p>
         </div>
 
         <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
@@ -106,6 +107,8 @@
           GitHub
         </a>
         <span class="text-gray-300">·</span>
+        <a href="https://github.com/rashiq/mysql-digest/releases/tag/v0.1.0" class="hover:text-gray-900">v0.1.0</a>
+        <span class="text-gray-300">·</span>
         <code class="text-xs bg-gray-100 px-2 py-1 rounded">
           go get github.com/rashiq/mysql-digest
         </code>
@@ -113,7 +116,7 @@
     </footer>
   </div>
 
-  <script src="wasm_exec.js"></script>
-  <script src="app.js"></script>
+  <script src="wasm_exec.js?v=0.1.0"></script>
+  <script src="app.js?v=0.1.0"></script>
 </body>
 </html>
