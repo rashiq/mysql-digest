@@ -64,3 +64,15 @@ func TestHintAfterValue(t *testing.T) {
 		}
 	}
 }
+
+func TestNationalStringEscapes(t *testing.T) {
+	for _, mode := range []SQLMode{0, MODE_NO_BACKSLASH_ESCAPES} {
+		for _, literal := range []string{`'it\'s'`, `'it''s'`, `'text\'`} {
+			want, wantErr := Compute("SELECT "+literal, Options{SQLMode: mode})
+			got, err := Compute("SELECT N"+literal, Options{SQLMode: mode})
+			if (err == nil) != (wantErr == nil) || (err == nil && got != want) {
+				t.Errorf("mode %d, %s: got %+v, %v; want %+v, %v", mode, literal, got, err, want, wantErr)
+			}
+		}
+	}
+}

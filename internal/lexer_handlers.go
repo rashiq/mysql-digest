@@ -591,7 +591,7 @@ func (l *Lexer) handleNChar() lexResult {
 	}
 	// Found N'string' - parse as NCHAR_STRING
 	l.skip() // Skip the opening '
-	return l.scanQuoted('\'', QuoteModeIdentifier, NCHAR_STRING)
+	return l.scanQuoted('\'', QuoteModeString, NCHAR_STRING)
 }
 
 func (l *Lexer) handleDollarQuoted() lexResult {
