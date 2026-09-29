@@ -83,6 +83,13 @@ DIGEST_TEXT: SELECT * FROM `users` WHERE `id` = ?
 - `MaxLength` limits display bytes, including `...`, without a partial UTF-8 character. Nonpositive values disable this limit.
 - `MaxLength` does not change the hash or limit input processing. MySQL token-buffer truncation is not implemented.
 
+## Development
+
+Run `go test -race ./...` and `go vet ./...` before a release.
+Run `go generate ./internal` to rebuild token names with Python 3 and Go.
+The generator verifies a fixed MySQL source revision and checksum. It preserves the canonical `USER` name.
+The other token tables are maintained by hand. Keep their numeric IDs stable to preserve hash compatibility.
+
 ## License
 
 MIT License - see [LICENSE](LICENSE) file.

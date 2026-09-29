@@ -1,5 +1,7 @@
 package internal
 
+//go:generate python3 ../scripts/generate_token_names.py
+
 type TokenInfo struct {
 	String      string
 	Length      int
