@@ -110,7 +110,7 @@ func (l *Lexer) lexHintQuotedIdent() Token {
 			break
 		}
 	}
-	return l.returnToken(Token{Type: IDENT, Start: l.tokStart, End: l.pos})
+	return l.returnToken(Token{Type: IDENT_QUOTED, Start: l.tokStart, End: l.pos})
 }
 
 func (l *Lexer) lexHintChar(c byte) Token {

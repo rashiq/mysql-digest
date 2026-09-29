@@ -33,3 +33,17 @@ func TestUnterminatedInput(t *testing.T) {
 		}
 	}
 }
+
+func TestQuotedHintIdentifiers(t *testing.T) {
+	got, err := Compute("SELECT /*+ INDEX(`t` `idx`) */ * FROM t")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want, err := Compute("SELECT /*+ INDEX(t idx) */ * FROM t")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != want {
+		t.Fatalf("got %+v, want %+v", got, want)
+	}
+}

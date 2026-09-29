@@ -191,7 +191,7 @@ func TestLexer_Hint_WithBacktickIdent(t *testing.T) {
 		TOK_HINT_COMMENT_OPEN,
 		SET_VAR_HINT,
 		'(',
-		IDENT, // `sql_mode` - backtick-quoted
+		IDENT_QUOTED,
 		'=',
 		TEXT_STRING, // 'STRICT'
 		')',
@@ -223,7 +223,7 @@ func TestLexer_Hint_EscapedQuotes(t *testing.T) {
 		{
 			name:   "escaped_backtick",
 			input:  "SELECT /*+ SET_VAR(`col``name`=1) */ 1",
-			tokens: []int{SELECT_SYM, TOK_HINT_COMMENT_OPEN, SET_VAR_HINT, '(', IDENT, '=', NUM, ')', TOK_HINT_COMMENT_CLOSE, NUM},
+			tokens: []int{SELECT_SYM, TOK_HINT_COMMENT_OPEN, SET_VAR_HINT, '(', IDENT_QUOTED, '=', NUM, ')', TOK_HINT_COMMENT_CLOSE, NUM},
 		},
 	}
 
