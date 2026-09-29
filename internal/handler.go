@@ -44,9 +44,6 @@ func (h *tokenHandler) handleToken(tok Token) error {
 	case tok.Type == NULL_SYM:
 		h.handleNull()
 
-	case tok.Type == ')':
-		h.handleCloseParen()
-
 	case tok.Type == IDENT || tok.Type == IDENT_QUOTED:
 		return h.handleIdentifier(tok)
 
@@ -77,11 +74,6 @@ func (h *tokenHandler) handleNull() {
 		h.store.push(TOK_GENERIC_VALUE)
 		h.reducer.reduceAfterValue()
 	}
-}
-
-func (h *tokenHandler) handleCloseParen() {
-	h.store.push(')')
-	h.reducer.reduceAll()
 }
 
 func (h *tokenHandler) handleIdentifier(tok Token) error {

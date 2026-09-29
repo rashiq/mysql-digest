@@ -127,23 +127,17 @@ func (l *Lexer) handleChar() lexResult {
 		l.skip() // consume '>'
 		if l.peek() == '>' {
 			l.skip() // consume second '>'
-			return doneWithNext(Token{Type: JSON_UNQUOTED_SEPARATOR_SYM, Start: l.tokStart, End: l.pos}, MY_LEX_START)
+			return done(Token{Type: JSON_UNQUOTED_SEPARATOR_SYM, Start: l.tokStart, End: l.pos})
 		}
-		return doneWithNext(Token{Type: JSON_SEPARATOR_SYM, Start: l.tokStart, End: l.pos}, MY_LEX_START)
+		return done(Token{Type: JSON_SEPARATOR_SYM, Start: l.tokStart, End: l.pos})
 	}
 
 	// Check for placeholder '?' in prepare mode
 	if c == '?' && l.stmtPrepareMode && !isIdentChar(l.peek()) {
-		return doneWithNext(Token{Type: PARAM_MARKER, Start: l.tokStart, End: l.pos}, MY_LEX_START)
+		return done(Token{Type: PARAM_MARKER, Start: l.tokStart, End: l.pos})
 	}
 
-	// Close paren does NOT allow signed numbers after (don't set nextState)
-	if c == ')' {
-		return done(Token{Type: int(c), Start: l.tokStart, End: l.pos})
-	}
-
-	// All other chars set nextState = MY_LEX_START to allow signed numbers
-	return doneWithNext(Token{Type: int(c), Start: l.tokStart, End: l.pos}, MY_LEX_START)
+	return done(Token{Type: int(c), Start: l.tokStart, End: l.pos})
 }
 
 func (l *Lexer) handleIdent() lexResult {
@@ -163,14 +157,10 @@ func (l *Lexer) handleIdent() lexResult {
 		return doneWithNext(Token{Type: IDENT, Start: l.tokStart, End: l.tokStart + length}, MY_LEX_IDENT_SEP)
 	}
 
-	l.backup() // Unget the non-ident char
-
 	// Check if it's a keyword
 	if tokval := l.findKeyword(length); tokval != 0 {
-		l.skip() // Re-skip the character we ungot
-		return doneWithNext(Token{Type: tokval, Start: l.tokStart, End: l.tokStart + length}, MY_LEX_START)
+		return done(Token{Type: tokval, Start: l.tokStart, End: l.tokStart + length})
 	}
-	l.skip() // Re-skip
 
 	// Return as IDENT
 	return done(Token{Type: IDENT, Start: l.tokStart, End: l.tokStart + length})
@@ -182,7 +172,7 @@ func (l *Lexer) handleIdentSep() lexResult {
 	if isIdentChar(l.peek()) {
 		return doneWithNext(Token{Type: int(c), Start: l.tokStart, End: l.pos}, MY_LEX_IDENT_START)
 	}
-	return doneWithNext(Token{Type: int(c), Start: l.tokStart, End: l.pos}, MY_LEX_START)
+	return done(Token{Type: int(c), Start: l.tokStart, End: l.pos})
 }
 
 func (l *Lexer) handleIdentStart() lexResult {
@@ -204,7 +194,7 @@ func (l *Lexer) handleCmpOp() lexResult {
 	}
 	length := l.tokenLen()
 	if tokval := l.findKeyword(length); tokval != 0 {
-		return doneWithNext(Token{Type: tokval, Start: l.tokStart, End: l.pos}, MY_LEX_START)
+		return done(Token{Type: tokval, Start: l.tokStart, End: l.pos})
 	}
 	return cont(MY_LEX_CHAR)
 }
@@ -220,7 +210,7 @@ func (l *Lexer) handleLongCmpOp() lexResult {
 	}
 	length := l.tokenLen()
 	if tokval := l.findKeyword(length); tokval != 0 {
-		return doneWithNext(Token{Type: tokval, Start: l.tokStart, End: l.pos}, MY_LEX_START)
+		return done(Token{Type: tokval, Start: l.tokStart, End: l.pos})
 	}
 	return cont(MY_LEX_CHAR)
 }
@@ -233,7 +223,7 @@ func (l *Lexer) handleBool() lexResult {
 	}
 	l.skip()
 	if tokval := l.findKeyword(2); tokval != 0 {
-		return doneWithNext(Token{Type: tokval, Start: l.tokStart, End: l.pos}, MY_LEX_START)
+		return done(Token{Type: tokval, Start: l.tokStart, End: l.pos})
 	}
 	return done(Token{Type: int(c), Start: l.tokStart, End: l.pos})
 }
@@ -264,7 +254,7 @@ func (l *Lexer) handleUserVariable() lexResult {
 	case MY_LEX_STRING, MY_LEX_USER_VARIABLE_DELIMITER, MY_LEX_STRING_OR_DELIMITER:
 		// String-quoted variable name (@'var', @`var`, @"var")
 		// Let the normal lexer handle it
-		return doneWithNext(Token{Type: int('@'), Start: l.tokStart, End: l.pos}, MY_LEX_START)
+		return done(Token{Type: int('@'), Start: l.tokStart, End: l.pos})
 	case MY_LEX_USER_END:
 		// Another @ follows - this is a system variable (@@var)
 		return doneWithNext(Token{Type: int('@'), Start: l.tokStart, End: l.pos}, MY_LEX_SYSTEM_VAR)
@@ -305,7 +295,7 @@ func (l *Lexer) handleSystemVar() lexResult {
 
 	// Check if next char is a quoted delimiter (@@`var`)
 	if getStateMap(l.peek()) == MY_LEX_USER_VARIABLE_DELIMITER {
-		return doneWithNext(Token{Type: int('@'), Start: l.tokStart, End: l.pos}, MY_LEX_START)
+		return done(Token{Type: int('@'), Start: l.tokStart, End: l.pos})
 	}
 
 	// Otherwise, parse as identifier or keyword
@@ -338,7 +328,7 @@ func (l *Lexer) handleIdentOrKeyword() lexResult {
 
 	// Check if it's a keyword
 	if tokval := l.findKeyword(length); tokval != 0 {
-		return doneWithNext(Token{Type: tokval, Start: l.tokStart, End: l.tokStart + length}, MY_LEX_START)
+		return done(Token{Type: tokval, Start: l.tokStart, End: l.tokStart + length})
 	}
 
 	// Return as IDENT
@@ -625,10 +615,9 @@ func (l *Lexer) handleDollarQuoted() lexResult {
 }
 
 func (l *Lexer) handleLongComment() lexResult {
-	c := l.input[l.tokStart]
 	if l.peek() != '*' {
 		// Not a comment, just a '/' character (division operator)
-		return l.handleDivisionOp(c)
+		return l.handleCharToken()
 	}
 
 	// Skip the '*'
@@ -645,13 +634,7 @@ func (l *Lexer) handleLongComment() lexResult {
 	}
 
 	// Regular block comment /* ... */
-	return l.handleBlockComment()
-}
-
-// handleDivisionOp handles the case where '/' is not followed by '*'.
-// This is the division operator, not a comment.
-func (l *Lexer) handleDivisionOp(c byte) lexResult {
-	return done(Token{Type: int(c), Start: l.tokStart, End: l.pos})
+	return l.consumeBlockComment()
 }
 
 func (l *Lexer) handleOptimizerHint() lexResult {
@@ -696,11 +679,6 @@ func (l *Lexer) handleVersionComment() lexResult {
 	}
 
 	// Invalid version format (1-4 digits) - skip as comment
-	return l.consumeBlockComment()
-}
-
-// handleBlockComment handles regular block comments /* ... */.
-func (l *Lexer) handleBlockComment() lexResult {
 	return l.consumeBlockComment()
 }
 
